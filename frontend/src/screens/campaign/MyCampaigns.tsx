@@ -1,0 +1,433 @@
+import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { 
+  ArrowLeft, 
+  Plus, 
+  Search,
+  Filter,
+  MoreHorizontal,
+  Eye,
+  Edit3,
+  Play,
+  Pause,
+  Users,
+  DollarSign,
+  Calendar,
+  Target,
+  TrendingUp,
+  CheckCircle,
+  Clock,
+  AlertCircle
+} from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
+import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
+import { Badge } from '../../components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
+
+interface Campaign {
+  id: string
+  title: string
+  status: 'draft' | 'active' | 'paused' | 'completed' | 'expired'
+  budget: number
+  spent: number
+  startDate: string
+  endDate: string
+  influencersJoined: number
+  targetInfluencers: number
+  contentSubmitted: number
+  contentApproved: number
+  totalReach: number
+  engagement: number
+  objective: string
+  createdAt: string
+}
+
+export default function MyCampaigns() {
+  const navigate = useNavigate()
+  const [selectedTab, setSelectedTab] = useState('all')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [showFilters, setShowFilters] = useState(false)
+
+  // Mock campaigns data
+  const campaigns: Campaign[] = [
+    {
+      id: '1',
+      title: 'Summer Skincare Collection Launch',
+      status: 'active',
+      budget: 5000,
+      spent: 2800,
+      startDate: '2024-04-15',
+      endDate: '2024-05-15',
+      influencersJoined: 12,
+      targetInfluencers: 20,
+      contentSubmitted: 8,
+      contentApproved: 5,
+      totalReach: 850000,
+      engagement: 8.2,
+      objective: 'Brand Awareness',
+      createdAt: '2024-04-10'
+    },
+    {
+      id: '2',
+      title: 'Tech Product Review Series',
+      status: 'completed',
+      budget: 3200,
+      spent: 3200,
+      startDate: '2024-03-01',
+      endDate: '2024-03-31',
+      influencersJoined: 8,
+      targetInfluencers: 10,
+      contentSubmitted: 15,
+      contentApproved: 15,
+      totalReach: 420000,
+      engagement: 6.8,
+      objective: 'Product Launch',
+      createdAt: '2024-02-25'
+    },
+    {
+      id: '3',
+      title: 'Holiday Season Promotion',
+      status: 'paused',
+      budget: 4500,
+      spent: 1200,
+      startDate: '2024-04-20',
+      endDate: '2024-05-20',
+      influencersJoined: 5,
+      targetInfluencers: 15,
+      contentSubmitted: 2,
+      contentApproved: 1,
+      totalReach: 125000,
+      engagement: 4.5,
+      objective: 'Sales',
+      createdAt: '2024-04-18'
+    },
+    {
+      id: '4',
+      title: 'Eco-Friendly Product Line',
+      status: 'draft',
+      budget: 6000,
+      spent: 0,
+      startDate: '2024-05-01',
+      endDate: '2024-06-01',
+      influencersJoined: 0,
+      targetInfluencers: 25,
+      contentSubmitted: 0,
+      contentApproved: 0,
+      totalReach: 0,
+      engagement: 0,
+      objective: 'Brand Awareness',
+      createdAt: '2024-04-22'
+    }
+  ]
+
+  const getStatusColor = (status: Campaign['status']) => {
+    switch (status) {
+      case 'active': return 'bg-green-100 text-green-800'
+      case 'completed': return 'bg-blue-100 text-blue-800'
+      case 'paused': return 'bg-yellow-100 text-yellow-800'
+      case 'draft': return 'bg-gray-100 text-gray-800'
+      case 'expired': return 'bg-red-100 text-red-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getStatusIcon = (status: Campaign['status']) => {
+    switch (status) {
+      case 'active': return <Play className="w-4 h-4" />
+      case 'completed': return <CheckCircle className="w-4 h-4" />
+      case 'paused': return <Pause className="w-4 h-4" />
+      case 'draft': return <Edit3 className="w-4 h-4" />
+      case 'expired': return <AlertCircle className="w-4 h-4" />
+      default: return <Clock className="w-4 h-4" />
+    }
+  }
+
+  const filteredCampaigns = campaigns.filter(campaign => {
+    const matchesTab = selectedTab === 'all' || campaign.status === selectedTab
+    const matchesSearch = !searchTerm || 
+      campaign.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      campaign.objective.toLowerCase().includes(searchTerm.toLowerCase())
+    return matchesTab && matchesSearch
+  })
+
+  const formatCurrency = (amount: number) => `$${amount.toLocaleString()}`
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`
+    return num.toString()
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* Header */}
+      <header className="bg-white/80 backdrop-blur-sm border-b border-slate-200 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard/brand')}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Dashboard
+            </Button>
+            <div>
+              <h1 className="text-2xl font-semibold text-slate-900">My Campaigns</h1>
+              <p className="text-slate-600">{campaigns.length} total campaigns</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder="Search campaigns..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 w-64"
+              />
+            </div>
+            <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
+              <Filter className="w-4 h-4 mr-2" />
+              Filters
+            </Button>
+            <Button onClick={() => navigate('/campaigns/create')}>
+              <Plus className="w-4 h-4 mr-2" />
+              New Campaign
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        
+        {/* Stats Overview */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-600">Active Campaigns</p>
+                  <p className="text-2xl font-bold text-slate-900">
+                    {campaigns.filter(c => c.status === 'active').length}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                  <Play className="w-6 h-6 text-green-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-600">Total Spent</p>
+                  <p className="text-2xl font-bold text-slate-900">
+                    {formatCurrency(campaigns.reduce((sum, c) => sum + c.spent, 0))}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                  <DollarSign className="w-6 h-6 text-blue-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-600">Total Reach</p>
+                  <p className="text-2xl font-bold text-slate-900">
+                    {formatNumber(campaigns.reduce((sum, c) => sum + c.totalReach, 0))}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                  <Eye className="w-6 h-6 text-purple-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-600">Avg. Engagement</p>
+                  <p className="text-2xl font-bold text-slate-900">
+                    {(campaigns.reduce((sum, c) => sum + c.engagement, 0) / campaigns.length).toFixed(1)}%
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center">
+                  <TrendingUp className="w-6 h-6 text-pink-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Status Tabs */}
+        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="mb-6">
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="all">All ({campaigns.length})</TabsTrigger>
+            <TabsTrigger value="active">
+              Active ({campaigns.filter(c => c.status === 'active').length})
+            </TabsTrigger>
+            <TabsTrigger value="draft">
+              Draft ({campaigns.filter(c => c.status === 'draft').length})
+            </TabsTrigger>
+            <TabsTrigger value="paused">
+              Paused ({campaigns.filter(c => c.status === 'paused').length})
+            </TabsTrigger>
+            <TabsTrigger value="completed">
+              Completed ({campaigns.filter(c => c.status === 'completed').length})
+            </TabsTrigger>
+            <TabsTrigger value="expired">
+              Expired ({campaigns.filter(c => c.status === 'expired').length})
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {/* Campaigns Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          {filteredCampaigns.map((campaign) => (
+            <Card 
+              key={campaign.id} 
+              className="shadow-lg border-0 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-shadow cursor-pointer"
+              onClick={() => navigate(`/campaigns/${campaign.id}`)}
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-slate-900 line-clamp-2">{campaign.title}</h3>
+                    <p className="text-sm text-slate-600 mt-1">{campaign.objective}</p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Badge className={`${getStatusColor(campaign.status)} flex items-center space-x-1`}>
+                      {getStatusIcon(campaign.status)}
+                      <span className="capitalize">{campaign.status}</span>
+                    </Badge>
+                    <Button variant="ghost" size="sm" onClick={(e) => e.stopPropagation()}>
+                      <MoreHorizontal className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              
+              <CardContent className="space-y-4">
+                {/* Progress */}
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-slate-600">Budget Progress</span>
+                    <span className="font-medium">
+                      {formatCurrency(campaign.spent)} / {formatCurrency(campaign.budget)}
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-200 rounded-full h-2">
+                    <div 
+                      className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full"
+                      style={{ width: `${Math.min((campaign.spent / campaign.budget) * 100, 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Metrics */}
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-slate-600">Influencers</p>
+                    <p className="font-semibold">{campaign.influencersJoined}/{campaign.targetInfluencers}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-600">Content</p>
+                    <p className="font-semibold">{campaign.contentApproved}/{campaign.contentSubmitted}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-600">Reach</p>
+                    <p className="font-semibold">{formatNumber(campaign.totalReach)}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-600">Engagement</p>
+                    <p className="font-semibold text-green-600">{campaign.engagement}%</p>
+                  </div>
+                </div>
+
+                {/* Timeline */}
+                <div className="pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <div className="flex items-center space-x-1">
+                      <Calendar className="w-3 h-3" />
+                      <span>{new Date(campaign.startDate).toLocaleDateString()}</span>
+                    </div>
+                    <span>→</span>
+                    <div className="flex items-center space-x-1">
+                      <Calendar className="w-3 h-3" />
+                      <span>{new Date(campaign.endDate).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Actions */}
+                <div className="flex space-x-2 pt-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      navigate(`/campaigns/${campaign.id}`)
+                    }}
+                  >
+                    <Eye className="w-3 h-3 mr-1" />
+                    View
+                  </Button>
+                  
+                  {campaign.status === 'draft' && (
+                    <Button 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        // Launch campaign action
+                      }}
+                    >
+                      <Play className="w-3 h-3 mr-1" />
+                      Launch
+                    </Button>
+                  )}
+                  
+                  {campaign.status === 'active' && (
+                    <Button 
+                      size="sm" 
+                      variant="secondary"
+                      className="flex-1"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        // Pause campaign action
+                      }}
+                    >
+                      <Pause className="w-3 h-3 mr-1" />
+                      Pause
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Empty State */}
+        {filteredCampaigns.length === 0 && (
+          <div className="text-center py-12">
+            <Target className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-slate-900 mb-2">No campaigns found</h3>
+            <p className="text-slate-600 mb-6">
+              {searchTerm ? 'Try adjusting your search terms' : 'Create your first campaign to get started'}
+            </p>
+            <Button onClick={() => navigate('/campaigns/create')}>
+              <Plus className="w-4 h-4 mr-2" />
+              Create Campaign
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
