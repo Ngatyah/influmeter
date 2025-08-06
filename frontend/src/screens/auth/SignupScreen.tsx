@@ -1,15 +1,14 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Mail, Lock, User, Building2, UserPlus } from 'lucide-react'
-import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { signupUser } from '../../store/slices/authSlice'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Checkbox } from '../../components/ui/checkbox'
-import { loginUser } from '../../store/slices/authSlice'
+import { authService } from '../../services/auth.service'
 
 export default function SignupScreen() {
+  const navigate = useNavigate()
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -21,69 +20,58 @@ export default function SignupScreen() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  
-  const dispatch = useAppDispatch()
-  const navigate = useNavigate()
-  const { isLoading, error } = useAppSelector(state => state.auth)
+  const [error, setError] = useState('')
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }))
-  }
-
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (formData.password !== formData.confirmPassword) {
-      return
-    }
-    
-    if (!formData.agreeToTerms) {
-      return
-    }
-
-    await dispatch(signupUser({
-      name: formData.name,
-      email: formData.email,
-      password: formData.password,
-      role: formData.role
-    }))
+    if (error) setError('') // Clear error when user types
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
+
+    // Validation
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+    
+    if (!formData.agreeToTerms) {
+      setError('Please agree to the Terms of Service and Privacy Policy')
+      return
+    }
+
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters long')
+      return
+    }
+
     setLoading(true)
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // Mock successful signup response - new users need onboarding
-      const userData = {
-        id: '1',
-        name: formData.name,
+      const response = await authService.signup({
         email: formData.email,
-        role: selectedRole,
-        avatar: null,
-        verified: false,
-        onboardingCompleted: false // New users need to complete onboarding
-      }
+        password: formData.password,
+        role: formData.role
+      })
 
-      // Store user data in Redux
-      dispatch(loginUser(userData))
+      console.log('Signup successful:', response)
       
-      // Redirect to appropriate onboarding flow for new users
-      if (selectedRole === 'brand') {
-        navigate('/onboarding/brand')
-      } else {
-        navigate('/onboarding/influencer')
-      }
+      // Navigate based on backend response (usually onboarding)
+      navigate(response.redirectTo)
       
-    } catch (error) {
-      console.error('Signup failed:', error)
-      // Handle error (show notification, etc.)
+    } catch (err: any) {
+      console.error('Signup error:', err)
+      setError(err.message || 'Failed to create account')
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleGoogleSignup = () => {
+    // Redirect to backend Google OAuth endpoint
+    window.location.href = `${process.env.REACT_APP_API_URL}/auth/google`
   }
 
   return (
@@ -91,11 +79,11 @@ export default function SignupScreen() {
       <div className="w-full max-w-md">
         {/* Logo/Brand Section */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary rounded-2xl mb-4 shadow-lg">
-            <span className="text-2xl font-bold text-primary-foreground">I</span>
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-600 rounded-2xl mb-4 shadow-lg">
+            <span className="text-2xl font-bold text-white">I</span>
           </div>
-          <h1 className="text-3xl font-bold text-primary mb-2">Influmeter</h1>
-          <p className="text-muted-foreground">Connect. Create. Collaborate.</p>
+          <h1 className="text-3xl font-bold text-indigo-600 mb-2">Influmeter</h1>
+          <p className="text-slate-600">Connect. Create. Collaborate.</p>
         </div>
 
         <Card className="shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
@@ -109,6 +97,13 @@ export default function SignupScreen() {
           </CardHeader>
           
           <CardContent className="space-y-6 px-8 pb-8">
+            {/* Error Display */}
+            {error && (
+              <div className="p-4 bg-red-50 border-l-4 border-red-400 rounded-md">
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            )}
+
             {/* Enhanced Role Selection */}
             <div className="space-y-4">
               <label className="text-sm font-semibold text-slate-700">I am a</label>
@@ -118,10 +113,11 @@ export default function SignupScreen() {
                   variant={formData.role === 'influencer' ? 'default' : 'outline'}
                   className={`h-14 text-sm font-medium transition-all duration-200 ${
                     formData.role === 'influencer' 
-                      ? 'bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/25' 
-                      : 'border-2 border-slate-200 hover:border-primary/50 hover:bg-primary/5'
+                      ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/25' 
+                      : 'border-2 border-slate-200 hover:border-indigo-500/50 hover:bg-indigo-50'
                   }`}
                   onClick={() => handleInputChange('role', 'influencer')}
+                  disabled={loading}
                 >
                   <User className="w-5 h-5 mr-2" />
                   Influencer
@@ -131,10 +127,11 @@ export default function SignupScreen() {
                   variant={formData.role === 'brand' ? 'default' : 'outline'}
                   className={`h-14 text-sm font-medium transition-all duration-200 ${
                     formData.role === 'brand' 
-                      ? 'bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/25' 
-                      : 'border-2 border-slate-200 hover:border-primary/50 hover:bg-primary/5'
+                      ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/25' 
+                      : 'border-2 border-slate-200 hover:border-indigo-500/50 hover:bg-indigo-50'
                   }`}
                   onClick={() => handleInputChange('role', 'brand')}
+                  disabled={loading}
                 >
                   <Building2 className="w-5 h-5 mr-2" />
                   Brand
@@ -149,15 +146,16 @@ export default function SignupScreen() {
                   {formData.role === 'brand' ? 'Brand Name' : 'Full Name'}
                 </label>
                 <div className="relative group">
-                  <User className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary transition-colors" />
+                  <User className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                   <Input
                     id="name"
                     type="text"
                     placeholder={formData.role === 'brand' ? 'Enter brand name' : 'Enter your full name'}
                     value={formData.name}
                     onChange={(e) => handleInputChange('name', e.target.value)}
-                    className="pl-12 h-12 border-2 border-slate-200 focus:border-primary transition-colors bg-white"
+                    className="pl-12 h-12 border-2 border-slate-200 focus:border-indigo-600 transition-colors bg-white"
                     required
+                    disabled={loading}
                   />
                 </div>
               </div>
@@ -167,15 +165,16 @@ export default function SignupScreen() {
                   Email Address
                 </label>
                 <div className="relative group">
-                  <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary transition-colors" />
+                  <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                   <Input
                     id="email"
                     type="email"
                     placeholder="Enter your email"
                     value={formData.email}
                     onChange={(e) => handleInputChange('email', e.target.value)}
-                    className="pl-12 h-12 border-2 border-slate-200 focus:border-primary transition-colors bg-white"
+                    className="pl-12 h-12 border-2 border-slate-200 focus:border-indigo-600 transition-colors bg-white"
                     required
+                    disabled={loading}
                   />
                 </div>
               </div>
@@ -185,15 +184,17 @@ export default function SignupScreen() {
                   Password
                 </label>
                 <div className="relative group">
-                  <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary transition-colors" />
+                  <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                   <Input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
                     placeholder="Create a password"
                     value={formData.password}
                     onChange={(e) => handleInputChange('password', e.target.value)}
-                    className="pl-12 pr-12 h-12 border-2 border-slate-200 focus:border-primary transition-colors bg-white"
+                    className="pl-12 pr-12 h-12 border-2 border-slate-200 focus:border-indigo-600 transition-colors bg-white"
                     required
+                    minLength={6}
+                    disabled={loading}
                   />
                   <Button
                     type="button"
@@ -201,6 +202,7 @@ export default function SignupScreen() {
                     size="sm"
                     className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-slate-100"
                     onClick={() => setShowPassword(!showPassword)}
+                    disabled={loading}
                   >
                     {showPassword ? (
                       <EyeOff className="h-4 w-4 text-slate-500" />
@@ -209,6 +211,7 @@ export default function SignupScreen() {
                     )}
                   </Button>
                 </div>
+                <p className="text-xs text-slate-500">Must be at least 6 characters</p>
               </div>
 
               <div className="space-y-2">
@@ -216,15 +219,16 @@ export default function SignupScreen() {
                   Confirm Password
                 </label>
                 <div className="relative group">
-                  <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary transition-colors" />
+                  <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                   <Input
                     id="confirmPassword"
                     type={showConfirmPassword ? 'text' : 'password'}
                     placeholder="Confirm your password"
                     value={formData.confirmPassword}
                     onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                    className="pl-12 pr-12 h-12 border-2 border-slate-200 focus:border-primary transition-colors bg-white"
+                    className="pl-12 pr-12 h-12 border-2 border-slate-200 focus:border-indigo-600 transition-colors bg-white"
                     required
+                    disabled={loading}
                   />
                   <Button
                     type="button"
@@ -232,6 +236,7 @@ export default function SignupScreen() {
                     size="sm"
                     className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-slate-100"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    disabled={loading}
                   >
                     {showConfirmPassword ? (
                       <EyeOff className="h-4 w-4 text-slate-500" />
@@ -248,31 +253,26 @@ export default function SignupScreen() {
                   id="terms"
                   checked={formData.agreeToTerms}
                   onCheckedChange={(checked) => handleInputChange('agreeToTerms', checked)}
+                  disabled={loading}
                 />
                 <label htmlFor="terms" className="text-sm text-slate-600 leading-relaxed">
                   I agree to the{' '}
-                  <Link to="/terms" className="text-primary hover:underline font-medium">
+                  <Link to="/terms" className="text-indigo-600 hover:underline font-medium">
                     Terms of Service
                   </Link>{' '}
                   and{' '}
-                  <Link to="/privacy" className="text-primary hover:underline font-medium">
+                  <Link to="/privacy" className="text-indigo-600 hover:underline font-medium">
                     Privacy Policy
                   </Link>
                 </label>
               </div>
 
-              {error && (
-                <div className="p-4 bg-red-50 border-l-4 border-red-400 rounded-md">
-                  <p className="text-sm text-red-700">{error}</p>
-                </div>
-              )}
-
               <Button 
                 type="submit" 
-                className="w-full h-12 bg-primary hover:bg-primary/90 text-white font-medium shadow-lg shadow-primary/25 transition-all duration-200 hover:shadow-xl hover:shadow-primary/30"
-                disabled={isLoading || !formData.agreeToTerms}
+                className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-lg shadow-indigo-600/25 transition-all duration-200 hover:shadow-xl hover:shadow-indigo-600/30"
+                disabled={loading || !formData.agreeToTerms}
               >
-                {isLoading ? (
+                {loading ? (
                   <div className="flex items-center">
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
                     Creating account...
@@ -286,13 +286,39 @@ export default function SignupScreen() {
               </Button>
             </form>
 
+            {/* Google Signup Option */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-slate-500">Or continue with</span>
+              </div>
+            </div>
+
+            <Button 
+              type="button" 
+              variant="outline" 
+              className="w-full h-12"
+              onClick={handleGoogleSignup}
+              disabled={loading}
+            >
+              <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              Continue with Google
+            </Button>
+
             {/* Enhanced Sign In Link */}
             <div className="text-center pt-4 border-t border-slate-100">
               <p className="text-slate-600">
                 Already have an account?{' '}
                 <Link 
                   to="/login" 
-                  className="text-primary hover:text-primary/80 font-semibold hover:underline transition-colors"
+                  className="text-indigo-600 hover:text-indigo-700 font-semibold hover:underline transition-colors"
                 >
                   Sign in
                 </Link>

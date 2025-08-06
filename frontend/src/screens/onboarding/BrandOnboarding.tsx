@@ -14,12 +14,15 @@ import {
 import { Card, CardContent } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
+import { onboardingService, BrandCompanyData, BrandGoalsData, BrandPreferencesData } from '../../services/onboarding.service'
 
 const TOTAL_STEPS = 3
 
 export default function BrandOnboarding() {
   const navigate = useNavigate()
   const [currentStep, setCurrentStep] = useState(1)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   // Form state
   const [formData, setFormData] = useState({
@@ -30,7 +33,8 @@ export default function BrandOnboarding() {
     website: '',
     description: '',
     logo: null as File | null,
-    
+    contactName: '',
+
     // Step 2: Marketing Goals
     marketingGoals: [] as string[],
     targetAudience: {
@@ -78,11 +82,50 @@ export default function BrandOnboarding() {
     '$10,000 - $25,000', '$25,000 - $50,000', '$50,000+'
   ]
 
-  const handleNext = () => {
-    if (currentStep < TOTAL_STEPS) {
-      setCurrentStep(currentStep + 1)
-    } else {
-      handleComplete()
+  const handleNext = async () => {
+    setLoading(true)
+    setError('')
+
+    try {
+      switch (currentStep) {
+        case 1:
+          // TODO: Implement proper file upload for logo
+          // For now, we'll save company info without logo URL since blob URLs won't persist
+          await onboardingService.saveBrandCompany({
+            companyName: formData.companyName,
+            industry: formData.industry,
+            companySize: formData.companySize,
+            description: formData.description,
+            contactName: formData.contactName,
+            logoUrl: '' // Will be implemented with proper file upload service
+          })
+          break
+
+        case 2:
+          await onboardingService.saveBrandGoals({
+            objectives: formData.marketingGoals,
+            campaignTypes: formData.campaignTypes,
+            targetAudience: formData.targetAudience
+          })
+          break
+
+        case 3:
+          await onboardingService.saveBrandPreferences({
+            budgetRange: formData.monthlyBudget,
+            platforms: formData.preferredPlatforms,
+            influencerTypes: formData.influencerTypes,
+            collaborationStyle: formData.collaborationStyle
+          })
+          // Onboarding complete, redirect to dashboard
+          navigate('/dashboard/brand')
+          return
+      }
+
+      setCurrentStep(prev => prev + 1)
+    } catch (err: any) {
+      setError(err.message || 'Failed to save data')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -90,17 +133,6 @@ export default function BrandOnboarding() {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1)
     }
-  }
-
-  const handleComplete = async () => {
-    // Save onboarding data
-    console.log('Brand onboarding completed:', formData)
-    
-    // Update user onboarding status in Redux/API
-    // dispatch(updateUserProfile({ ...formData, onboardingCompleted: true }))
-    
-    // Redirect to dashboard
-    navigate('/dashboard/brand')
   }
 
   const toggleSelection = (array: string[], item: string, setter: (value: string[]) => void) => {
@@ -250,6 +282,18 @@ export default function BrandOnboarding() {
                     required
                   />
                   <p className="text-xs text-slate-500 mt-1">{formData.description.length}/500 characters</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Contact Person Name *
+                  </label>
+                  <Input
+                    value={formData.contactName}
+                    onChange={(e) => setFormData({...formData, contactName: e.target.value})}
+                    placeholder="Name of the person we can contact at your company"
+                    required
+                  />
                 </div>
               </div>
             )}
@@ -495,12 +539,19 @@ export default function BrandOnboarding() {
                 <Button variant="outline" onClick={() => navigate('/dashboard/brand')}>
                   Skip for now
                 </Button>
-                <Button onClick={handleNext}>
+                <Button onClick={handleNext} disabled={loading}>
                   {currentStep === TOTAL_STEPS ? 'Complete Setup' : 'Continue'}
                   {currentStep < TOTAL_STEPS && <ArrowRight className="w-4 h-4 ml-2" />}
                 </Button>
               </div>
             </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="mt-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-md">
+                {error}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -12,14 +12,25 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, role }) => {
   const navigate = useNavigate()
 
   useEffect(() => {
+    console.log('ProtectedRoute check:', {
+      isAuthenticated,
+      user,
+      requiredRole: role,
+      userRole: user?.role,
+      userRoleLowercase: user?.role?.toLowerCase(),
+      currentPath: window.location.pathname
+    })
+
     if (!isAuthenticated) {
+      console.log('Not authenticated, redirecting to login')
       navigate('/login')
       return
     }
 
-    if (role && user?.role !== role) {
+    if (role && user?.role?.toLowerCase() !== role) {
+      console.log(`Wrong role: required ${role}, got ${user?.role?.toLowerCase()}`)
       // Redirect to appropriate dashboard if wrong role
-      navigate(`/dashboard/${user?.role}`)
+      navigate(`/dashboard/${user?.role?.toLowerCase()}`)
       return
     }
 

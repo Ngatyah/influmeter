@@ -2,6 +2,7 @@ version: '3.8'
 services:
   postgres:
     image: postgres:14
+    container_name: influmeter-postgres
     ports:
       - "5432:5432"
     environment:
@@ -10,9 +11,15 @@ services:
       POSTGRES_DB: influmeter
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U influmeter -d influmeter"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
   
   redis:
     image: redis:alpine
+    container_name: influmeter-redis
     ports:
       - "6379:6379"
     volumes:

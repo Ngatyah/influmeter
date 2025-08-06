@@ -19,13 +19,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Badge } from '../../components/ui/badge'
+import { onboardingService, InfluencerPersonalData, InfluencerCategoriesData, InfluencerSocialData, InfluencerRatesData } from '../../services/onboarding.service'
+import { socialService, ConnectedSocialAccount } from '../../services/social.service'
 
 const TOTAL_STEPS = 4
 
 export default function InfluencerOnboarding() {
   const navigate = useNavigate()
   const [currentStep, setCurrentStep] = useState(1)
-  const [completedSteps, setCompletedSteps] = useState<number[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null)
+  const [connectedAccounts, setConnectedAccounts] = useState<ConnectedSocialAccount[]>([])
 
   // Form state
   const [formData, setFormData] = useState({
@@ -35,12 +40,13 @@ export default function InfluencerOnboarding() {
     location: '',
     dateOfBirth: '',
     gender: '',
-    
+    phone: '',
+
     // Step 2: Categories & Niches
     primaryCategory: '',
     niches: [] as string[],
     languages: [] as string[],
-    
+
     // Step 3: Social Media
     socialAccounts: {
       instagram: { username: '', followers: 0, connected: false },
@@ -48,7 +54,7 @@ export default function InfluencerOnboarding() {
       youtube: { username: '', followers: 0, connected: false },
       twitter: { username: '', followers: 0, connected: false }
     },
-    
+
     // Step 4: Content & Preferences
     contentTypes: [] as string[],
     rates: {
@@ -85,46 +91,119 @@ export default function InfluencerOnboarding() {
     'Paid collaborations only', 'Brand ambassadorships', 'Event partnerships'
   ]
 
-  const handleNext = () => {
-    if (currentStep < TOTAL_STEPS) {
-      setCompletedSteps([...completedSteps, currentStep])
-      setCurrentStep(currentStep + 1)
-    } else {
-      handleComplete()
+  const handleNext = async () => {
+    setLoading(true)
+    setError('')
+
+    try {
+      switch (currentStep) {
+        case 1:
+          await onboardingService.saveInfluencerPersonal({
+            firstName: formData.fullName.split(' ')[0],
+            lastName: formData.fullName.split(' ')[1],
+            bio: formData.bio,
+            location: formData.location,
+            phone: formData.phone
+          })
+          break
+
+        case 2:
+          await onboardingService.saveInfluencerCategories({
+            categories: [formData.primaryCategory],
+            niches: formData.niches,
+            languages: formData.languages
+          })
+          break
+
+        case 3:
+          // Validate at least one social media account is connected
+          if (connectedAccounts.length === 0) {
+            throw new Error('Please connect at least one social media account to continue')
+          }
+          
+          // Transform connected accounts to format expected by backend
+          const socialAccountsArray = connectedAccounts.map(account => ({
+            platform: account.platform,
+            username: account.username,
+            followers: account.metrics.followers.toString()
+          }))
+          
+          await onboardingService.saveInfluencerSocial({
+            accounts: socialAccountsArray
+          })
+          break
+
+        case 4:
+          await onboardingService.saveInfluencerRates({
+            contentTypes: formData.contentTypes,
+            rates: formData.rates
+          })
+          // Onboarding complete, redirect to dashboard
+          navigate('/dashboard/influencer')
+          return
+      }
+
+      setCurrentStep(prev => prev + 1)
+    } catch (err: any) {
+      setError(err.message || 'Failed to save data')
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleBack = () => {
+  const handleSkip = async () => {
+    setLoading(true)
+    try {
+      await onboardingService.skipStep(currentStep)
+      if (currentStep === 4) {
+        navigate('/dashboard/influencer')
+      } else {
+        setCurrentStep(prev => prev + 1)
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to skip step')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const connectSocialAccount = async (platform: string) => {
+    setConnectingPlatform(platform)
+    setError('')
+    
+    try {
+      const result = await socialService.connectPlatform(platform)
+      
+      if (result.success && result.account) {
+        setConnectedAccounts(prev => {
+          const filtered = prev.filter(acc => acc.platform !== platform)
+          return [...filtered, result.account!]
+        })
+      } else {
+        throw new Error(result.error || `Failed to connect ${platform}`)
+      }
+    } catch (err: any) {
+      setError(err.message || `Failed to connect to ${platform}`)
+    } finally {
+      setConnectingPlatform(null)
+    }
+  }
+
+  const disconnectSocialAccount = async (platform: string) => {
+    try {
+      const success = await socialService.disconnectPlatform(platform)
+      if (success) {
+        setConnectedAccounts(prev => prev.filter(acc => acc.platform !== platform))
+      }
+    } catch (err: any) {
+      setError(`Failed to disconnect from ${platform}`)
+    }
+  }
+
+   const handleBack = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1)
     }
-  }
-
-  const handleComplete = async () => {
-    // Save onboarding data
-    console.log('Onboarding completed:', formData)
-    
-    // Update user onboarding status in Redux/API
-    // dispatch(updateUserProfile({ ...formData, onboardingCompleted: true }))
-    
-    // Redirect to dashboard
-    navigate('/dashboard/influencer')
-  }
-
-  const connectSocialAccount = (platform: string) => {
-    // Simulate OAuth connection
-    const followers = Math.floor(Math.random() * 50000) + 1000
-    setFormData({
-      ...formData,
-      socialAccounts: {
-        ...formData.socialAccounts,
-        [platform]: {
-          ...formData.socialAccounts[platform as keyof typeof formData.socialAccounts],
-          connected: true,
-          followers
-        }
-      }
-    })
   }
 
   const toggleSelection = (array: string[], item: string, setter: (value: string[]) => void) => {
@@ -244,6 +323,17 @@ export default function InfluencerOnboarding() {
                   />
                   <p className="text-xs text-slate-500 mt-1">{formData.bio.length}/500 characters</p>
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Phone Number
+                  </label>
+                  <Input
+                    value={formData.phone}
+                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                    placeholder="Enter your phone number"
+                  />
+                </div>
               </div>
             )}
 
@@ -348,18 +438,19 @@ export default function InfluencerOnboarding() {
                     { key: 'youtube', name: 'YouTube', icon: Youtube, color: 'text-red-500' },
                     { key: 'twitter', name: 'Twitter/X', icon: Twitter, color: 'text-blue-500' }
                   ].map((platform) => {
-                    const account = formData.socialAccounts[platform.key as keyof typeof formData.socialAccounts]
+                    const connectedAccount = connectedAccounts.find(acc => acc.platform === platform.key)
+                    const isConnecting = connectingPlatform === platform.key
                     const Icon = platform.icon
 
                     return (
-                      <Card key={platform.key} className="border-2 hover:border-purple-200 transition-colors">
+                      <Card key={platform.key} className="border-2 bg-white/80 border-purple-500  hover:border-purple-200 transition-colors">
                         <CardContent className="p-6">
                           <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center space-x-3">
                               <Icon className={`w-6 h-6 ${platform.color}`} />
                               <span className="font-medium">{platform.name}</span>
                             </div>
-                            {account.connected && (
+                            {connectedAccount && (
                               <Badge className="bg-green-100 text-green-800">
                                 <Check className="w-3 h-3 mr-1" />
                                 Connected
@@ -367,34 +458,49 @@ export default function InfluencerOnboarding() {
                             )}
                           </div>
 
-                          {account.connected ? (
+                          {connectedAccount ? (
                             <div className="space-y-2">
-                              <p className="text-sm text-slate-600">@{account.username}</p>
-                              <p className="text-sm font-semibold">{account.followers.toLocaleString()} followers</p>
-                              <Button variant="outline" size="sm" className="w-full">
-                                <ExternalLink className="w-3 h-3 mr-1" />
-                                View Profile
-                              </Button>
+                              <p className="text-sm text-slate-600">@{connectedAccount.username}</p>
+                              <p className="text-sm font-semibold">{connectedAccount.metrics.followers.toLocaleString()} followers</p>
+                              {connectedAccount.metrics.isVerified && (
+                                <Badge className="bg-blue-100 text-blue-800 text-xs">
+                                  <Check className="w-3 h-3 mr-1" />
+                                  Verified
+                                </Badge>
+                              )}
+                              <div className="flex space-x-2">
+                                <Button variant="outline" size="sm" className="flex-1">
+                                  <ExternalLink className="w-3 h-3 mr-1" />
+                                  View Profile
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={() => disconnectSocialAccount(platform.key)}
+                                  className="text-red-600 hover:text-red-700"
+                                >
+                                  Disconnect
+                                </Button>
+                              </div>
                             </div>
                           ) : (
                             <div className="space-y-3">
-                              <Input
-                                placeholder={`Your ${platform.name} username`}
-                                value={account.username}
-                                onChange={(e) => setFormData({
-                                  ...formData,
-                                  socialAccounts: {
-                                    ...formData.socialAccounts,
-                                    [platform.key]: { ...account, username: e.target.value }
-                                  }
-                                })}
-                              />
+                              <p className="text-sm text-slate-600">
+                                Connect your {platform.name} account to verify your audience and metrics
+                              </p>
                               <Button
                                 onClick={() => connectSocialAccount(platform.key)}
                                 className="w-full"
-                                disabled={!account.username}
+                                disabled={isConnecting}
                               >
-                                Connect {platform.name}
+                                {isConnecting ? (
+                                  <>
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                                    Connecting...
+                                  </>
+                                ) : (
+                                  <>Connect {platform.name}</>
+                                )}
                               </Button>
                             </div>
                           )}
@@ -404,10 +510,41 @@ export default function InfluencerOnboarding() {
                   })}
                 </div>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm text-blue-800">
-                    <strong>Why connect your accounts?</strong> This helps us verify your audience and recommend relevant campaigns. Your account data is kept secure and private.
-                  </p>
+                <div className="space-y-4">
+                  {/* Connection Status Summary */}
+                  {connectedAccounts.length > 0 && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Check className="w-5 h-5 text-green-600" />
+                        <span className="font-medium text-green-800">
+                          {connectedAccounts.length} account{connectedAccounts.length > 1 ? 's' : ''} connected
+                        </span>
+                      </div>
+                      <p className="text-sm text-green-700">
+                        Total audience: {connectedAccounts.reduce((sum, acc) => sum + acc.metrics.followers, 0).toLocaleString()} followers
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Requirement Notice */}
+                  {connectedAccounts.length === 0 && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <ExternalLink className="w-5 h-5 text-amber-600" />
+                        <span className="font-medium text-amber-800">Connection Required</span>
+                      </div>
+                      <p className="text-sm text-amber-700">
+                        You must connect at least one social media account to continue. This helps us verify your audience and recommend relevant campaigns.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Information */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-800">
+                      <strong>Secure OAuth Integration:</strong> We use official platform APIs to securely fetch your public metrics. Your login credentials are never stored, and data is cached with Redis for performance.
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
@@ -544,12 +681,19 @@ export default function InfluencerOnboarding() {
                 <Button variant="outline" onClick={() => navigate('/dashboard/influencer')}>
                   Skip for now
                 </Button>
-                <Button onClick={handleNext}>
+                <Button onClick={handleNext} disabled={loading}>
                   {currentStep === TOTAL_STEPS ? 'Complete Setup' : 'Continue'}
                   {currentStep < TOTAL_STEPS && <ArrowRight className="w-4 h-4 ml-2" />}
                 </Button>
               </div>
             </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+                {error}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

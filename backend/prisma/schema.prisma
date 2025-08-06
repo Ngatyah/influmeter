@@ -1,0 +1,442 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum UserRole {
+  INFLUENCER
+  BRAND
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum ContentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+  PAID
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum ParticipantStatus {
+  ACTIVE
+  COMPLETED
+  REMOVED
+}
+
+enum CompanySize {
+  STARTUP
+  SMALL
+  MEDIUM
+  LARGE
+  ENTERPRISE
+}
+
+enum PaymentMethodType {
+  STRIPE
+  MPESA
+  PAYPAL
+  BANK_TRANSFER
+}
+
+enum ContentType {
+  IMAGE
+  VIDEO
+  STORY
+  REEL
+  POST
+}
+
+// Core User Models
+model User {
+  id            String     @id @default(uuid())
+  email         String     @unique
+  passwordHash  String?    @map("password_hash")
+  role          UserRole
+  emailVerified Boolean    @default(false) @map("email_verified")
+  status        UserStatus @default(ACTIVE)
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  profile                UserProfile?
+  influencerProfile      InfluencerProfile?
+  brandProfile           BrandProfile?
+  onboardingProgress     OnboardingProgress?
+  socialAccounts         SocialAccount[]
+  campaigns              Campaign[]
+  campaignApplications   CampaignApplication[]
+  campaignParticipants   CampaignParticipant[]
+  contentSubmissions     ContentSubmission[]
+  payments               Payment[]
+  receivedPayments       Payment[]                @relation("PaymentReceiver")
+  notifications          Notification[]
+  notificationPrefs      NotificationPreference?
+  earnings               UserEarnings?
+  analytics              UserAnalytics?
+  shortlists             Shortlist[]
+  shortlistedBy          Shortlist[]              @relation("ShortlistedInfluencer")
+  paymentMethods         PaymentMethod[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  userId     String   @id @map("user_id")
+  firstName  String?  @map("first_name")
+  lastName   String?  @map("last_name")
+  bio        String?
+  avatarUrl  String?  @map("avatar_url")
+  phone      String?
+  location   String?
+  website    String?
+  isVerified Boolean  @default(false) @map("is_verified")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model OnboardingProgress {
+  userId         String   @id @map("user_id")
+  currentStep    Int      @default(1) @map("current_step")
+  completedSteps Json     @default("[]") @map("completed_steps")
+  isCompleted    Boolean  @default(false) @map("is_completed")
+  data           Json     @default("{}")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("onboarding_progress")
+}
+
+model InfluencerProfile {
+  userId       String   @id @map("user_id")
+  categories   String[] @default([])
+  niches       String[] @default([])
+  languages    String[] @default([])
+  contentTypes String[] @default([]) @map("content_types")
+  rates        Json     @default("{}")
+  demographics Json     @default("{}")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("influencer_profiles")
+}
+
+model BrandProfile {
+  userId          String      @id @map("user_id")
+  companyName     String      @map("company_name")
+  industry        String?
+  companySize     CompanySize? @map("company_size")
+  logoUrl         String?     @map("logo_url")
+  description     String?
+  marketingGoals  String[]    @default([]) @map("marketing_goals")
+  budgetRange     String?     @map("budget_range")
+  targetAudience  Json        @default("{}") @map("target_audience")
+  preferences     Json        @default("{}")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("brand_profiles")
+}
+
+// Campaign Models
+model Campaign {
+  id             String         @id @default(uuid())
+  brandId        String         @map("brand_id")
+  title          String
+  description    String?
+  objective      String?
+  budget         Decimal?       @db.Decimal(10, 2)
+  startDate      DateTime?      @map("start_date")
+  endDate        DateTime?      @map("end_date")
+  status         CampaignStatus @default(DRAFT)
+  requirements   Json           @default("{}")
+  targetCriteria Json           @default("{}") @map("target_criteria")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  brand                User                  @relation(fields: [brandId], references: [id])
+  applications         CampaignApplication[]
+  participants         CampaignParticipant[]
+  contentSubmissions   ContentSubmission[]
+  analytics            CampaignAnalytics?
+
+  @@map("campaigns")
+}
+
+model CampaignApplication {
+  id              String            @id @default(uuid())
+  campaignId      String            @map("campaign_id")
+  influencerId    String            @map("influencer_id")
+  status          ApplicationStatus @default(PENDING)
+  applicationData Json              @default("{}") @map("application_data")
+  appliedAt       DateTime          @default(now()) @map("applied_at")
+  respondedAt     DateTime?         @map("responded_at")
+
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
+  influencer User     @relation(fields: [influencerId], references: [id])
+
+  @@unique([campaignId, influencerId])
+  @@map("campaign_applications")
+}
+
+model CampaignParticipant {
+  id           String            @id @default(uuid())
+  campaignId   String            @map("campaign_id")
+  influencerId String            @map("influencer_id")
+  status       ParticipantStatus @default(ACTIVE)
+  joinedAt     DateTime          @default(now()) @map("joined_at")
+  completedAt  DateTime?         @map("completed_at")
+
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
+  influencer User     @relation(fields: [influencerId], references: [id])
+
+  @@unique([campaignId, influencerId])
+  @@map("campaign_participants")
+}
+
+// Content Models
+model ContentSubmission {
+  id           String        @id @default(uuid())
+  campaignId   String        @map("campaign_id")
+  influencerId String        @map("influencer_id")
+  title        String?
+  description  String?
+  caption      String?
+  hashtags     String[]      @default([])
+  platforms    String[]      @default([])
+  contentType  ContentType   @map("content_type")
+  status       ContentStatus @default(PENDING)
+  feedback     String?
+  amount       Decimal?      @db.Decimal(10, 2)
+  submittedAt  DateTime      @default(now()) @map("submitted_at")
+  approvedAt   DateTime?     @map("approved_at")
+  completedAt  DateTime?     @map("completed_at")
+  paidAt       DateTime?     @map("paid_at")
+
+  // Relations
+  campaign    Campaign           @relation(fields: [campaignId], references: [id])
+  influencer  User               @relation(fields: [influencerId], references: [id])
+  files       ContentFile[]
+  performance ContentPerformance?
+  payments    Payment[]
+
+  @@map("content_submissions")
+}
+
+model ContentFile {
+  id           String   @id @default(uuid())
+  contentId    String   @map("content_id")
+  fileUrl      String   @map("file_url")
+  fileType     String   @map("file_type")
+  fileSize     BigInt?  @map("file_size")
+  thumbnailUrl String?  @map("thumbnail_url")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  content ContentSubmission @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@map("content_files")
+}
+
+model ContentPerformance {
+  contentId      String   @id @map("content_id")
+  views          BigInt   @default(0)
+  likes          BigInt   @default(0)
+  comments       BigInt   @default(0)
+  shares         BigInt   @default(0)
+  saves          BigInt   @default(0)
+  engagementRate Decimal? @db.Decimal(5, 2) @map("engagement_rate")
+  lastUpdated    DateTime @default(now()) @map("last_updated")
+
+  content ContentSubmission @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@map("content_performance")
+}
+
+// Payment Models
+model Payment {
+  id            String        @id @default(uuid())
+  contentId     String?       @map("content_id")
+  influencerId  String        @map("influencer_id")
+  brandId       String        @map("brand_id")
+  amount        Decimal       @db.Decimal(10, 2)
+  platformFee   Decimal       @db.Decimal(10, 2) @map("platform_fee")
+  netAmount     Decimal       @db.Decimal(10, 2) @map("net_amount")
+  paymentMethod String?       @map("payment_method")
+  transactionId String?       @map("transaction_id")
+  status        PaymentStatus @default(PENDING)
+  processedAt   DateTime?     @map("processed_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  // Relations
+  content    ContentSubmission? @relation(fields: [contentId], references: [id])
+  influencer User               @relation(fields: [influencerId], references: [id])
+  brand      User               @relation("PaymentReceiver", fields: [brandId], references: [id])
+
+  @@map("payments")
+}
+
+model PaymentMethod {
+  id        String            @id @default(uuid())
+  userId    String            @map("user_id")
+  type      PaymentMethodType
+  details   Json
+  isDefault Boolean           @default(false) @map("is_default")
+  isActive  Boolean           @default(true) @map("is_active")
+  createdAt DateTime          @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("payment_methods")
+}
+
+model UserEarnings {
+  userId        String    @id @map("user_id")
+  totalEarned   Decimal   @default(0) @db.Decimal(10, 2) @map("total_earned")
+  totalPaid     Decimal   @default(0) @db.Decimal(10, 2) @map("total_paid")
+  pendingAmount Decimal   @default(0) @db.Decimal(10, 2) @map("pending_amount")
+  lastPayoutAt  DateTime? @map("last_payout_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_earnings")
+}
+
+// Notification Models
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  type      String
+  title     String
+  message   String
+  data      Json      @default("{}")
+  read      Boolean   @default(false)
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  userId               String   @id @map("user_id")
+  emailNotifications   Boolean  @default(true) @map("email_notifications")
+  pushNotifications    Boolean  @default(true) @map("push_notifications")
+  smsNotifications     Boolean  @default(false) @map("sms_notifications")
+  notificationTypes    Json     @default("{}") @map("notification_types")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+// Analytics Models
+model UserAnalytics {
+  userId              String   @id @map("user_id")
+  profileViews        BigInt   @default(0) @map("profile_views")
+  totalCampaigns      Int      @default(0) @map("total_campaigns")
+  totalEarnings       Decimal  @default(0) @db.Decimal(10, 2) @map("total_earnings")
+  avgEngagementRate   Decimal? @db.Decimal(5, 2) @map("avg_engagement_rate")
+  lastCalculated      DateTime @default(now()) @map("last_calculated")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_analytics")
+}
+
+model CampaignAnalytics {
+  campaignId         String   @id @map("campaign_id")
+  totalReach         BigInt   @default(0) @map("total_reach")
+  totalImpressions   BigInt   @default(0) @map("total_impressions")
+  totalEngagement    BigInt   @default(0) @map("total_engagement")
+  engagementRate     Decimal? @db.Decimal(5, 2) @map("engagement_rate")
+  roi                Decimal? @db.Decimal(5, 2)
+  costPerEngagement  Decimal? @db.Decimal(10, 2) @map("cost_per_engagement")
+  lastCalculated     DateTime @default(now()) @map("last_calculated")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@map("campaign_analytics")
+}
+
+// Discovery Models
+model Shortlist {
+  id           String   @id @default(uuid())
+  brandId      String   @map("brand_id")
+  influencerId String   @map("influencer_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  brand      User @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  influencer User @relation("ShortlistedInfluencer", fields: [influencerId], references: [id], onDelete: Cascade)
+
+  @@unique([brandId, influencerId])
+  @@map("shortlists")
+}
+
+model SocialAccount {
+  id              String    @id @default(uuid())
+  userId          String    @map("user_id")
+  platform        String
+  platformUserId  String?   @map("platform_user_id")
+  username        String?
+  accessToken     String?   @map("access_token")
+  refreshToken    String?   @map("refresh_token")
+  followersCount  BigInt    @default(0) @map("followers_count")
+  followingCount  BigInt    @default(0) @map("following_count")
+  postsCount      BigInt    @default(0) @map("posts_count")
+  engagementRate  Decimal?  @db.Decimal(5, 2) @map("engagement_rate")
+  isVerified      Boolean   @default(false) @map("is_verified")
+  isConnected     Boolean   @default(true) @map("is_connected")
+  lastSynced      DateTime? @map("last_synced")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform])
+  @@map("social_accounts")
+}

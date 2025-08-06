@@ -20,6 +20,7 @@ import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Badge } from '../../components/ui/badge'
 import { Checkbox } from '../../components/ui/checkbox'
+import NotificationSystem from '../../components/notifications/NotificationSystem'
 
 interface Influencer {
   id: string
@@ -201,7 +202,11 @@ export default function DiscoverInfluencers() {
               <p className="text-slate-600">{filteredInfluencers.length} influencers found</p>
             </div>
           </div>
+          
+          {/* Add notifications and other controls */}
           <div className="flex items-center space-x-3">
+            <NotificationSystem userRole="brand" />
+            
             <Button variant="outline" onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}>
               {viewMode === 'grid' ? <List className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </Button>

@@ -40,27 +40,18 @@ export default function LoginScreen() {
     setLoading(true)
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Use Redux action to handle login with backend
+      const result = await dispatch(loginUser({ email, password, role }))
       
-      // Mock successful login response - existing users
-      const userData = {
-        id: '1',
-        name: 'John Doe',
-        email: email,
-        role: role,
-        avatar: null,
-        verified: true,
-        password: password,
-        followers: 12500, // Example data
-        onboardingCompleted: true // Existing users have completed onboarding
+      if (loginUser.fulfilled.match(result)) {
+        // Navigate based on backend response
+        const redirectTo = result.payload?.redirectTo || `/dashboard/${role}`
+        console.log('Login successful, redirecting to:', redirectTo)
+        navigate(redirectTo)
+      } else {
+        // Handle login failure
+        console.error('Login failed:', result.payload)
       }
-
-      // Store user data in Redux
-      dispatch(loginUser(userData))
-      
-      // Redirect directly to dashboard for existing users
-      navigate(`/dashboard/${role}`)
       
     } catch (error) {
       console.error('Login failed:', error)

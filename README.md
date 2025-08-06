@@ -1,5 +1,15 @@
 # Influmeter - Influencer Marketing Platform
 
+## Start docker 
+docker-compose up -d
+
+## Start Prisma
+
+ npx prisma generate
+
+## Start Backend
+
+
 A comprehensive influencer marketing platform connecting brands with content creators across Africa.
 
 ## 🚀 Features

@@ -1,0 +1,71 @@
+### First, create a user and get auth token
+POST http://localhost:3001/api/auth/signup
+Content-Type: application/json
+
+{
+  "email": "influencer@test.com",
+  "password": "password123",
+  "role": "influencer"
+}
+
+### Get onboarding progress
+GET http://localhost:3001/api/onboarding/progress
+Authorization: Bearer YOUR_TOKEN_HERE
+
+### Step 1: Influencer Personal Info
+POST http://localhost:3001/api/onboarding/influencer/personal
+Authorization: Bearer YOUR_TOKEN_HERE
+Content-Type: application/json
+
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "bio": "Tech content creator from Nairobi",
+  "location": "Nairobi, Kenya",
+  "phone": "+254712345678"
+}
+
+### Step 2: Categories and Niches
+POST http://localhost:3001/api/onboarding/influencer/categories
+Authorization: Bearer YOUR_TOKEN_HERE
+Content-Type: application/json
+
+{
+  "categories": ["Technology", "Lifestyle"],
+  "niches": ["Gadget Reviews", "Tech News"],
+  "languages": ["English", "Swahili"]
+}
+
+### Step 3: Social Accounts
+POST http://localhost:3001/api/onboarding/influencer/social
+Authorization: Bearer YOUR_TOKEN_HERE
+Content-Type: application/json
+
+{
+  "accounts": [
+    {
+      "platform": "Instagram",
+      "username": "@johndoe_tech",
+      "followers": "25K"
+    },
+    {
+      "platform": "TikTok", 
+      "username": "@johndoe",
+      "followers": "15K"
+    }
+  ]
+}
+
+### Step 4: Rates and Content Types
+POST http://localhost:3001/api/onboarding/influencer/rates
+Authorization: Bearer YOUR_TOKEN_HERE
+Content-Type: application/json
+
+{
+  "contentTypes": ["Instagram Post", "TikTok Video", "YouTube Video"],
+  "rates": {
+    "instagram_post": 200,
+    "tiktok_video": 150,
+    "youtube_video": 500
+  }
+}

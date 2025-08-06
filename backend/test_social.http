@@ -1,0 +1,37 @@
+###
+# Social Media Integration API Tests
+###
+
+### Get available platforms (no auth required)
+GET http://localhost:3001/api/social/platforms
+
+### Mock connect Instagram (requires JWT token)
+POST http://localhost:3001/api/social/mock-connect/instagram
+Authorization: Bearer YOUR_JWT_TOKEN
+
+### Get connected accounts (requires JWT token)
+GET http://localhost:3001/api/social/accounts
+Authorization: Bearer YOUR_JWT_TOKEN
+
+### Sync platform metrics (requires JWT token)
+POST http://localhost:3001/api/social/accounts/instagram/sync
+Authorization: Bearer YOUR_JWT_TOKEN
+
+### Check connection status (requires JWT token)
+GET http://localhost:3001/api/social/accounts/instagram/status
+Authorization: Bearer YOUR_JWT_TOKEN
+
+### Disconnect account (requires JWT token)
+DELETE http://localhost:3001/api/social/accounts/instagram
+Authorization: Bearer YOUR_JWT_TOKEN
+
+### OAuth callback (requires JWT token)
+POST http://localhost:3001/api/social/oauth/callback
+Authorization: Bearer YOUR_JWT_TOKEN
+Content-Type: application/json
+
+{
+  "platform": "instagram",
+  "code": "mock_auth_code_12345",
+  "state": "optional_state_param"
+}

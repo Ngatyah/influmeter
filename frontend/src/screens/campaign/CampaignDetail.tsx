@@ -30,6 +30,7 @@ const tabs = [
   { id: 'metrics', label: 'Metrics' },
 ]
 
+
 export default function CampaignDetail() {
   const navigate = useNavigate()
   const { id } = useParams()
@@ -284,17 +285,6 @@ export default function CampaignDetail() {
         />
       )}
 
-      {/* Influencer Content Modal */}
-      {showInfluencerModal && selectedInfluencer && (
-        <InfluencerContentModal
-          influencer={selectedInfluencer}
-          onClose={() => setShowInfluencerModal(false)}
-          onContentStatusChange={(contentId, newStatus) => {
-            // Handle content status change
-            console.log('Content status changed:', contentId, newStatus)
-          }}
-        />
-      )}
     </div>
   )
 }
@@ -410,8 +400,7 @@ function OverviewTab({ campaign }: { campaign: any }) {
 }
 
 function InfluencersTab({ campaign }: { campaign: any }) {
-  const [showInfluencerModal, setShowInfluencerModal] = useState(false)
-  const [selectedInfluencer, setSelectedInfluencer] = useState<any>(null)
+  const navigate = useNavigate()
 
   const influencers = [
     { id: 1, name: 'Murugi Munyi', followers: '532K', engagement: '8.4%', status: 'active', joined: '2024-04-16' },
@@ -466,6 +455,29 @@ function InfluencersTab({ campaign }: { campaign: any }) {
           status: 'approved'
         }
       ]
+    },
+    {
+      id: '3',
+      name: 'David Kim',
+      username: '@davidkim',
+      avatar: '/api/placeholder/60/60',
+      followers: '128K',
+      engagement: '15.2%',
+      verified: false,
+      joinedDate: '2024-04-18',
+      status: 'pending',
+      contentSubmissions: [
+        {
+          id: 'c4',
+          type: 'image',
+          files: ['/api/placeholder/400/500'],
+          caption: 'Morning skincare routine with @niveakenya products! Perfect start to the day 🌅 #NIVEASummer #MorningRoutine',
+          platforms: ['Instagram'],
+          hashtags: ['#NIVEASummer', '#MorningRoutine'],
+          submittedAt: '2024-04-18T09:15:00Z',
+          status: 'rejected'
+        }
+      ]
     }
   ]
 
@@ -482,8 +494,8 @@ function InfluencersTab({ campaign }: { campaign: any }) {
                 key={influencer.id}
                 className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
                 onClick={() => {
-                  setSelectedInfluencer(influencer)
-                  setShowInfluencerModal(true)
+                  // Replace modal with navigation to new page
+                  navigate(`/campaigns/${campaign.id}/influencer/${influencer.id}`)
                 }}
               >
                 <div className="flex items-center space-x-4">
@@ -525,24 +537,13 @@ function InfluencersTab({ campaign }: { campaign: any }) {
           </div>
         </CardContent>
       </Card>
-
-      {/* Influencer Content Modal */}
-      {showInfluencerModal && selectedInfluencer && (
-        <InfluencerContentModal
-          influencer={selectedInfluencer}
-          onClose={() => setShowInfluencerModal(false)}
-          onContentStatusChange={(contentId, newStatus) => {
-            console.log('Content status changed:', contentId, newStatus)
-          }}
-        />
-      )}
     </div>
   )
 }
 
 function ContentTab({ campaign }: { campaign: any }) {
-  const [setSelectedContent] = useState<any>(null)
-  const [setShowContentModal] = useState(false)
+  const [selectedContent, setSelectedContent] = useState<any>(null)
+  const [showContentModal, setShowContentModal] = useState(false)
 
   const submissions = [
     { 
@@ -667,24 +668,30 @@ function ContentTab({ campaign }: { campaign: any }) {
                     {submission.status}
                   </Badge>
                   
-                  {submission.status === 'pending' && (
-                    <div className="flex space-x-2">
-                      <Button size="sm" className="bg-green-500 hover:bg-green-600">
-                        <CheckCircle className="w-3 h-3 mr-1" />
-                        Approve
-                      </Button>
-                      <Button size="sm" variant="destructive">
-                        <XCircle className="w-3 h-3 mr-1" />
-                        Reject
-                      </Button>
-                    </div>
-                  )}
+                  {/* Remove inline buttons - content will be opened in modal */}
+                  <Button size="sm" variant="outline">
+                    <Eye className="w-3 h-3 mr-1" />
+                    View Details
+                  </Button>
                 </div>
               </div>
             ))}
           </div>
         </CardContent>
       </Card>
+
+      {/* Content Detail Modal */}
+      {showContentModal && selectedContent && (
+        <ContentDetailModal
+          content={selectedContent}
+          onClose={() => setShowContentModal(false)}
+          onStatusChange={(contentId, newStatus) => {
+            // Handle status change
+            console.log('Status changed:', contentId, newStatus)
+            setShowContentModal(false)
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -929,288 +936,3 @@ function ContentDetailModal({ content, onClose, onStatusChange }: {
 }
 
 
-// Add InfluencerContentModal component
-function InfluencerContentModal({ influencer, onClose, onContentStatusChange }: {
-  influencer: any
-  onClose: () => void
-  onContentStatusChange: (contentId: string, status: string) => void
-}) {
-  const [selectedContent, setSelectedContent] = useState<any>(null)
-  const [showContentDetail, setShowContentDetail] = useState(false)
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800'
-      case 'approved': return 'bg-green-100 text-green-800'
-      case 'rejected': return 'bg-red-100 text-red-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'pending': return <Clock className="w-4 h-4" />
-      case 'approved': return <CheckCircle className="w-4 h-4" />
-      case 'rejected': return <XCircle className="w-4 h-4" />
-      default: return <AlertTriangle className="w-4 h-4" />
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-4">
-              <img 
-                src={influencer.avatar} 
-                alt={influencer.name}
-                className="w-16 h-16 rounded-full object-cover"
-              />
-              <div>
-                <div className="flex items-center space-x-2">
-                  <h2 className="text-2xl font-semibold">{influencer.name}</h2>
-                  {influencer.verified && <Star className="w-5 h-5 text-yellow-500" />}
-                </div>
-                <p className="text-slate-600">{influencer.username}</p>
-                <div className="flex items-center space-x-4 text-sm text-slate-500 mt-1">
-                  <span>{influencer.followers} followers</span>
-                  <span>{influencer.engagement} engagement</span>
-                  <span>Joined {new Date(influencer.joinedDate).toLocaleDateString()}</span>
-                </div>
-              </div>
-            </div>
-            <Button variant="ghost" onClick={onClose}>
-              <XCircle className="w-6 h-6" />
-            </Button>
-          </div>
-
-          {/* Content Submissions */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Content Submissions ({influencer.contentSubmissions.length})</h3>
-              <div className="flex items-center space-x-4 text-sm text-slate-600">
-                <span className="flex items-center space-x-1">
-                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  <span>{influencer.contentSubmissions.filter((c: any) => c.status === 'approved').length} Approved</span>
-                </span>
-                <span className="flex items-center space-x-1">
-                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                  <span>{influencer.contentSubmissions.filter((c: any) => c.status === 'pending').length} Pending</span>
-                </span>
-                <span className="flex items-center space-x-1">
-                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                  <span>{influencer.contentSubmissions.filter((c: any) => c.status === 'rejected').length} Rejected</span>
-                </span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {influencer.contentSubmissions.map((content: any) => (
-                <div 
-                  key={content.id}
-                  className="border border-slate-200 rounded-lg p-4 hover:shadow-md cursor-pointer transition-all"
-                  onClick={() => {
-                    setSelectedContent(content)
-                    setShowContentDetail(true)
-                  }}
-                >
-                  {/* Content Preview */}
-                  <div className="aspect-square rounded-lg overflow-hidden bg-slate-100 mb-3">
-                    {content.type === 'image' ? (
-                      <img 
-                        src={content.files[0]} 
-                        alt="Content" 
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-slate-200">
-                        <Play className="w-12 h-12 text-slate-500" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Content Info */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Badge className={`${getStatusColor(content.status)} flex items-center space-x-1`}>
-                        {getStatusIcon(content.status)}
-                        <span className="capitalize">{content.status}</span>
-                      </Badge>
-                      <span className="text-xs text-slate-500 capitalize">{content.type}</span>
-                    </div>
-
-                    <p className="text-sm text-slate-700 line-clamp-2">{content.caption}</p>
-
-                    <div className="flex flex-wrap gap-1">
-                      {content.platforms.map((platform: string) => (
-                        <Badge key={platform} variant="outline" className="text-xs">
-                          {platform}
-                        </Badge>
-                      ))}
-                    </div>
-
-                    <p className="text-xs text-slate-500">
-                      Submitted {new Date(content.submittedAt).toLocaleDateString()}
-                    </p>
-
-                    {/* Quick Actions */}
-                    {content.status === 'pending' && (
-                      <div className="flex space-x-2 pt-2">
-                        <Button 
-                          size="sm" 
-                          className="bg-green-500 hover:bg-green-600 flex-1"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onContentStatusChange(content.id, 'approved')
-                          }}
-                        >
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Approve
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="destructive"
-                          className="flex-1"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onContentStatusChange(content.id, 'rejected')
-                          }}
-                        >
-                          <XCircle className="w-3 h-3 mr-1" />
-                          Reject
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Empty State */}
-            {influencer.contentSubmissions.length === 0 && (
-              <div className="text-center py-12">
-                <Camera className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-                <h4 className="text-lg font-medium text-slate-900 mb-2">No content submissions yet</h4>
-                <p className="text-slate-600">This influencer hasn't submitted any content for this campaign.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Content Detail Modal */}
-      {showContentDetail && selectedContent && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-60 p-4">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              {/* Header */}
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold">Content Details</h3>
-                <Button variant="ghost" onClick={() => setShowContentDetail(false)}>
-                  <XCircle className="w-5 h-5" />
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Content Display */}
-                <div>
-                  <div className="mb-4">
-                    {selectedContent.type === 'image' ? (
-                      <img 
-                        src={selectedContent.files[0]} 
-                        alt="Content" 
-                        className="w-full rounded-lg object-cover max-h-96"
-                      />
-                    ) : (
-                      <div className="aspect-video rounded-lg bg-slate-200 flex items-center justify-center">
-                        <div className="text-center">
-                          <Play className="w-16 h-16 text-slate-500 mx-auto mb-2" />
-                          <p className="text-slate-600">Video Content</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="font-medium mb-2">Caption</h4>
-                      <p className="text-slate-700 bg-slate-50 p-3 rounded-lg">
-                        {selectedContent.caption}
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <h4 className="font-medium mb-2">Platforms</h4>
-                        <div className="flex flex-wrap gap-1">
-                          {selectedContent.platforms.map((platform: string) => (
-                            <Badge key={platform} variant="secondary">
-                              {platform}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <h4 className="font-medium mb-2">Hashtags</h4>
-                        <div className="flex flex-wrap gap-1">
-                          {selectedContent.hashtags.map((hashtag: string) => (
-                            <Badge key={hashtag} variant="outline" className="text-xs">
-                              {hashtag}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div>
-                  <div className="mb-4">
-                    <Badge className={`${getStatusColor(selectedContent.status)} flex items-center space-x-2 w-fit`}>
-                      {getStatusIcon(selectedContent.status)}
-                      <span className="capitalize">{selectedContent.status}</span>
-                    </Badge>
-                  </div>
-
-                  <p className="text-sm text-slate-600 mb-6">
-                    Submitted on {new Date(selectedContent.submittedAt).toLocaleDateString()} at {new Date(selectedContent.submittedAt).toLocaleTimeString()}
-                  </p>
-
-                  {selectedContent.status === 'pending' && (
-                    <div className="space-y-3">
-                      <Button 
-                        className="w-full bg-green-500 hover:bg-green-600"
-                        onClick={() => {
-                          onContentStatusChange(selectedContent.id, 'approved')
-                          setShowContentDetail(false)
-                        }}
-                      >
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        Approve Content
-                      </Button>
-                      <Button 
-                        variant="destructive"
-                        className="w-full"
-                        onClick={() => {
-                          onContentStatusChange(selectedContent.id, 'rejected')
-                          setShowContentDetail(false)
-                        }}
-                      >
-                        <XCircle className="w-4 h-4 mr-2" />
-                        Reject Content
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
- 

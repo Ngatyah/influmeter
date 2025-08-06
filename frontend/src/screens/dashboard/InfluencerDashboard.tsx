@@ -1,4 +1,5 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { 
   Users, 
   TrendingUp, 
@@ -14,383 +15,349 @@ import {
   Clock,
   ArrowUpRight,
   Search,
-  Upload
+  Upload,
+  Target // Add this import
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
 import { useAppSelector, useAppDispatch } from '../../hooks/redux'
 import { logoutUser } from '../../store/slices/authSlice'
-import { useNavigate } from 'react-router-dom'
+import NotificationSystem from '../../components/notifications/NotificationSystem'
+import { dashboardService, InfluencerDashboardData } from '../../services/dashboard.service'
 
 export default function InfluencerDashboard() {
-  const dispatch = useAppDispatch()
   const navigate = useNavigate()
-  const { user } = useAppSelector(state => state.auth)
-  
-  const handleLogout = () => {
-    dispatch(logoutUser())
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [dashboardData, setDashboardData] = useState<InfluencerDashboardData | null>(null)
+
+  // Load dashboard data
+  useEffect(() => {
+    loadDashboardData()
+  }, [])
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true)
+      setError('')
+      
+      // Connect to real backend API
+      const data = await dashboardService.getInfluencerDashboard()
+      setDashboardData(data)
+    } catch (err: any) {
+      setError(err.message || 'Failed to load dashboard data')
+      console.error('Dashboard error:', err)
+      
+      // Fallback to mock data for development
+      const mockData: InfluencerDashboardData = {
+        earnings: {
+          total: 2500,
+          thisMonth: 800,
+          lastMonth: 650,
+          pending: 250,
+          growth: 23
+        },
+        campaigns: {
+          active: 3,
+          completed: 8,
+          applications: 2,
+          invitations: 1
+        },
+        performance: {
+          reach: '150K',
+          engagement: '8.4%',
+          avgViews: '12K',
+          totalContent: 24
+        },
+        socialStats: {
+          totalFollowers: 532000,
+          avgEngagement: '8.4%',
+          topPlatform: 'Instagram',
+          growth: 15
+        },
+        activeCampaigns: [
+          {
+            id: '1',
+            title: 'Summer Skincare Launch',
+            brand: 'NIVEA Kenya',
+            status: 'active',
+            deadline: '2024-05-15',
+            earning: 250,
+            progress: 75
+          },
+          {
+            id: '2',
+            title: 'Tech Product Review',
+            brand: 'Samsung East Africa',
+            status: 'active',
+            deadline: '2024-05-20',
+            earning: 300,
+            progress: 45
+          }
+        ],
+        recentActivities: [
+          {
+            id: '1',
+            type: 'content_approved',
+            title: 'Content Approved',
+            description: 'Your Instagram post for NIVEA campaign was approved',
+            timestamp: '2 hours ago'
+          },
+          {
+            id: '2',
+            type: 'payment_received',
+            title: 'Payment Received',
+            description: 'Payment of $250 has been processed',
+            amount: 250,
+            timestamp: '1 day ago'
+          }
+        ],
+        contentStatus: {
+          submitted: 15,
+          approved: 12,
+          pending: 2,
+          rejected: 1
+        }
+      }
+      
+      console.log('Using fallback mock data due to API error')
+      setDashboardData(mockData)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const campaignInvites = [
-    {
-      id: 1,
-      brand: "NIVEA Kenya",
-      logo: "/api/placeholder/40/40",
-      type: "Invite",
-      status: "pending"
-    },
-    {
-      id: 2,
-      brand: "Safaricom",
-      logo: "/api/placeholder/40/40", 
-      type: "Application",
-      status: "applied"
-    }
-  ]
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading dashboard...</p>
+        </div>
+      </div>
+    )
+  }
 
-  const upcomingPosts = [
-    {
-      id: 1,
-      date: "April 26, 2024",
-      type: "In-store photo",
-      brand: "NIVEA Kenya",
-      logo: "/api/placeholder/32/32"
-    }
-  ]
-
-  const activeCampaigns = [
-    {
-      id: 1,
-      name: "Summer Skincare",
-      brand: "NIVEA Kenya",
-      status: "content_due",
-      payout: "$350",
-      dueDate: "2024-05-10",
-      progress: "Accepted - Content Due"
-    },
-    {
-      id: 2,
-      name: "Tech Review Series", 
-      brand: "TechHub Africa",
-      status: "in_review",
-      payout: "$200",
-      dueDate: "2024-05-15",
-      progress: "Under Review"
-    }
-  ]
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <Button onClick={loadDashboardData}>Retry</Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm border-b border-slate-200 px-6 py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <img 
-              src={user?.avatar || "/api/placeholder/80/80"} 
-              alt={user?.name || "User"}
-              className="w-12 h-12 rounded-full object-cover"
-            />
-            <div>
-              <h1 className="text-2xl font-semibold text-slate-900">{user?.name}</h1>
-              <p className="text-slate-600">Influencer Dashboard</p>
-            </div>
+          <div>
+            <h1 className="text-2xl font-semibold text-slate-900">Creator Dashboard</h1>
+            <p className="text-slate-600">Track your campaigns and earnings</p>
           </div>
-          <div className="flex items-center space-x-3">
-            <Button variant="ghost" size="sm">
-              <Bell className="w-5 h-5" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <Settings className="w-5 h-5" />
-              Logout
-            </Button>
+          
+          {/* Add notifications to header */}
+          <div className="flex items-center space-x-4">
+            <NotificationSystem userRole="influencer" />
+            
+            {/* User profile section */}
+            <div className="flex items-center space-x-3">
+              <img 
+                src="/api/placeholder/40/40" 
+                alt="Profile"
+                className="w-8 h-8 rounded-full object-cover"
+              />
+              <div className="hidden sm:block">
+                <p className="text-sm font-medium text-slate-900">Influencer Name</p>
+                <p className="text-xs text-slate-600">@username</p>
+              </div>
+            </div>
           </div>
         </div>
       </header>
 
       <div className="flex">
-        {/* Sidebar */}
-        <aside className="w-64 bg-white/80 backdrop-blur-sm border-r border-slate-200 min-h-screen">
-          <nav className="p-4 space-y-2">
-            <NavItem icon={BarChart3} label="Overview" active />
-            <NavItem icon={Users} label="My Profile" />
-            <NavItem icon={Camera} label="Campaigns" />
-            <NavItem 
-              icon={TrendingUp} 
-              label="Analytics"
-              onClick={() => navigate('/analytics/influencer')}
-            />
-            <NavItem 
-              icon={DollarSign} 
-              label="Earnings"
-              onClick={() => navigate('/earnings')}
-            />
-            <NavItem 
-              icon={Settings} 
-              label="Settings"
-              onClick={() => navigate('/settings')}
-            />
+        {/* Left Navigation Sidebar */}
+        <aside className="w-64 bg-white/80 backdrop-blur-sm border-r border-slate-200 p-6">
+          <nav className="space-y-2">
+            <NavItem icon={BarChart3} label="Dashboard" active={true} />
+            <NavItem icon={Target} label="My Campaigns" onClick={() => navigate('/campaigns')} />
+            <NavItem icon={Search} label="Browse Campaigns" onClick={() => navigate('/campaigns/browse')} />
+            <NavItem icon={Camera} label="Content Library" onClick={() => navigate('/content')} />
+            <NavItem icon={DollarSign} label="Earnings" onClick={() => navigate('/earnings')} />
+            <NavItem icon={TrendingUp} label="Analytics" onClick={() => navigate('/analytics')} />
+            <NavItem icon={Settings} label="Settings" onClick={() => navigate('/settings')} />
           </nav>
+
+          {/* Quick Actions in Sidebar */}
+          <div className="mt-8">
+            <h3 className="text-sm font-medium text-slate-900 mb-4">Quick Actions</h3>
+            <div className="space-y-3">
+              <Button size="sm" className="w-full justify-start" onClick={() => navigate('/campaigns/browse')}>
+                <Search className="w-4 h-4 mr-2" />
+                Browse Campaigns
+              </Button>
+              <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => navigate('/content/submit')}>
+                <Upload className="w-4 h-4 mr-2" />
+                Upload Content
+              </Button>
+              <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => navigate('/analytics')}>
+                <Eye className="w-4 h-4 mr-2" />
+                View Analytics
+              </Button>
+            </div>
+          </div>
         </aside>
 
         {/* Main Content */}
         <main className="flex-1 p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            {/* Left Column */}
-            <div className="lg:col-span-2 space-y-6">
-              
-              {/* Campaign Invites */}
-              <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold">Campaign Invites & Applications</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {campaignInvites.map((campaign) => (
-                    <div key={campaign.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                          <span className="text-white font-bold text-sm">
-                            {campaign.brand.charAt(0)}
-                          </span>
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-slate-900">{campaign.brand}</h3>
-                          <p className="text-sm text-slate-600">{campaign.type}</p>
-                        </div>
+          {/* Overview Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <OverviewCard
+              title="Total Earnings"
+              value={`$${dashboardData?.earnings?.total?.toLocaleString() || '0'}`}
+              subtitle={`+${dashboardData?.earnings?.growth || 0}% this month`}
+              icon={<DollarSign className="w-6 h-6" />}
+              trend="↗"
+            />
+            <OverviewCard
+              title="Active Campaigns"
+              value={dashboardData?.campaigns?.active || 0}
+              subtitle={`${dashboardData?.campaigns?.completed || 0} completed`}
+              icon={<Target className="w-6 h-6" />}
+            />
+            <OverviewCard
+              title="Total Reach"
+              value={dashboardData?.performance?.reach || '0'}
+              subtitle={`${dashboardData?.performance?.avgViews || '0'} avg views`}
+              icon={<Eye className="w-6 h-6" />}
+            />
+            <OverviewCard
+              title="Engagement Rate"
+              value={dashboardData?.performance?.engagement || '0%'}
+              subtitle={`${dashboardData?.socialStats?.growth || 0}% growth`}
+              icon={<TrendingUp className="w-6 h-6" />}
+              trend="↗"
+            />
+          </div>
+
+          {/* Active Campaigns & Recent Activities */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Active Campaigns */}
+            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle>Active Campaigns</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {dashboardData?.activeCampaigns?.map((campaign) => (
+                    <div key={campaign.id} className="p-4 border border-slate-200 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium text-slate-900">{campaign.title}</h4>
+                        <Badge variant="secondary">{campaign.status}</Badge>
                       </div>
-                      <Button 
-                        variant={campaign.type === "Invite" ? "default" : "outline"}
-                        size="sm"
-                      >
-                        {campaign.type === "Invite" ? "Accept" : "View"}
-                      </Button>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-
-              {/* Active Campaigns - MOVED HERE */}
-              <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-lg font-semibold">My Active Campaigns</CardTitle>
-                  <Button variant="outline" size="sm" onClick={() => navigate('/campaigns/browse')}>
-                    Find More
-                  </Button>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {activeCampaigns.map((campaign) => (
-                    <div 
-                      key={campaign.id} 
-                      className="relative overflow-hidden rounded-lg border border-slate-200 bg-white p-4 hover:shadow-md transition-all duration-200 hover:border-slate-300"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          {/* Status Indicator */}
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                            campaign.status === 'content_due' 
-                              ? 'bg-orange-100 text-orange-600' 
-                              : 'bg-blue-100 text-blue-600'
-                          }`}>
-                            {campaign.status === 'content_due' ? (
-                              <Camera className="w-5 h-5" />
-                            ) : (
-                              <Clock className="w-5 h-5" />
-                            )}
-                          </div>
-
-                          {/* Campaign Info */}
-                          <div>
-                            <div className="flex items-center space-x-2 mb-1">
-                              <h3 className="font-semibold text-slate-900">{campaign.name}</h3>
-                              <Badge 
-                                variant={campaign.status === 'content_due' ? 'destructive' : 'secondary'}
-                                className="text-xs"
-                              >
-                                {campaign.progress}
-                              </Badge>
-                            </div>
-                            
-                            <div className="flex items-center space-x-4 text-sm text-slate-600">
-                              <div className="flex items-center space-x-1">
-                                <Star className="w-4 h-4 text-yellow-500" />
-                                <span>{campaign.brand}</span>
-                              </div>
-                              <div className="flex items-center space-x-1">
-                                <Calendar className="w-4 h-4" />
-                                <span>Due {new Date(campaign.dueDate).toLocaleDateString()}</span>
-                              </div>
-                            </div>
-                          </div>
+                      <p className="text-sm text-slate-600 mb-2">{campaign.brand}</p>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-slate-500">Due: {campaign.deadline}</span>
+                        <span className="font-semibold text-green-600">${campaign.earning}</span>
+                      </div>
+                      <div className="mt-2">
+                        <div className="w-full bg-slate-200 rounded-full h-2">
+                          <div 
+                            className="bg-indigo-600 h-2 rounded-full" 
+                            style={{ width: `${campaign.progress}%` }}
+                          ></div>
                         </div>
-
-                        {/* Actions & Payout */}
-                        <div className="flex items-center space-x-4">
-                          {/* Payout */}
-                          <div className="text-right">
-                            <div className="flex items-center space-x-1">
-                              <DollarSign className="w-4 h-4 text-green-500" />
-                              <span className="font-bold text-green-600">{campaign.payout}</span>
-                            </div>
-                            <span className="text-xs text-slate-500">Payout</span>
-                          </div>
-
-                          {/* Action Button */}
-                          {campaign.status === 'content_due' && (
-                            <Button 
-                              size="sm"
-                              onClick={() => navigate(`/campaigns/${campaign.id}/submit`)}
-                              className="bg-orange-500 hover:bg-orange-600"
-                            >
-                              <Upload className="w-4 h-4 mr-1" />
-                              Submit Content
-                            </Button>
-                          )}
-                          {campaign.status === 'in_review' && (
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => navigate(`/campaigns/${campaign.id}/details`)}
-                            >
-                              <Eye className="w-4 h-4 mr-1" />
-                              View Details
-                            </Button>
-                          )}
-                        </div>
+                        <p className="text-xs text-slate-500 mt-1">{campaign.progress}% complete</p>
                       </div>
                     </div>
                   ))}
-                </CardContent>
-              </Card>
+                </div>
+              </CardContent>
+            </Card>
 
-              {/* Upcoming Posts */}
-              <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold">Upcoming Posts</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {upcomingPosts.map((post) => (
-                    <div key={post.id} className="flex items-center space-x-3 p-4 border border-slate-200 rounded-lg">
-                      <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                        <span className="text-white font-bold text-xs">N</span>
-                      </div>
+            {/* Recent Activities */}
+            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle>Recent Activities</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {dashboardData?.recentActivities?.map((activity) => (
+                    <div key={activity.id} className="flex items-center space-x-3">
+                      <div className="w-2 h-2 bg-indigo-600 rounded-full"></div>
                       <div className="flex-1">
-                        <p className="text-sm text-slate-600">{post.date}</p>
-                        <h3 className="font-medium text-slate-900">{post.type}</h3>
-                        <p className="text-sm text-slate-600">{post.brand}</p>
+                        <h4 className="font-medium text-slate-900">{activity.title}</h4>
+                        <p className="text-sm text-slate-600">{activity.description}</p>
+                        <p className="text-xs text-slate-500">{activity.timestamp}</p>
                       </div>
+                      {activity.amount && (
+                        <span className="font-semibold text-green-600">+${activity.amount}</span>
+                      )}
                     </div>
                   ))}
-                </CardContent>
-              </Card>
-            </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-            {/* Right Column - Metrics */}
-            <div className="space-y-6">
-              
-              {/* Personal Metrics */}
-              <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold">Personal Metrics</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 gap-4">
-                    <MetricCard 
-                      label="Followers"
-                      value="12.5K"
-                      icon={Users}
-                    />
-                    <MetricCard 
-                      label="Engagement"
-                      value="1.2K"
-                      icon={TrendingUp}
-                    />
-                    <MetricCard 
-                      label="Views"
-                      value="25.3K"
-                      icon={Eye}
-                    />
+          {/* Earnings & Performance Summary */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle>Earnings Overview</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Total Earned</span>
+                    <span className="font-semibold">${dashboardData?.earnings?.total?.toLocaleString() || '0'}</span>
                   </div>
-                </CardContent>
-              </Card>
-
-              {/* AI Coach Suggestions */}
-              <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold">AI Coach Suggestions</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <p className="text-sm text-blue-800">
-                      Post more reels on <span className="font-semibold">Thursday evenings</span>
-                    </p>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">This Month</span>
+                    <span className="font-semibold text-green-600">
+                      ${dashboardData?.earnings?.thisMonth?.toLocaleString() || '0'}
+                    </span>
                   </div>
-                </CardContent>
-              </Card>
-
-              {/* Authenticity Score */}
-              <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold">Authenticity Score</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center">
-                    <div className="text-4xl font-bold text-slate-900 mb-2">94</div>
-                    <p className="text-sm text-slate-600">Trust Rating</p>
-                    <div className="mt-4 w-full bg-slate-200 rounded-full h-2">
-                      <div 
-                        className="bg-green-500 h-2 rounded-full" 
-                        style={{ width: `94%` }}
-                      ></div>
-                    </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Pending</span>
+                    <span className="font-semibold text-yellow-600">
+                      ${dashboardData?.earnings?.pending?.toLocaleString() || '0'}
+                    </span>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </CardContent>
+            </Card>
 
-              {/* Quick Actions */}
-              <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Button 
-                    className="w-full justify-start" 
-                    variant="outline"
-                    onClick={() => navigate('/campaigns/browse')}
-                  >
-                    <Search className="w-4 h-4 mr-2" />
-                    Browse Campaigns
-                  </Button>
-                  <Button 
-                    className="w-full justify-start" 
-                    variant="outline"
-                    onClick={() => {
-                      const contentDueCampaign = activeCampaigns.find(c => c.status === 'content_due')
-                      if (contentDueCampaign) {
-                        navigate(`/campaigns/${contentDueCampaign.id}/submit`)
-                      } else {
-                        navigate('/campaigns/browse')
-                      }
-                    }}
-                  >
-                    <Camera className="w-4 h-4 mr-2" />
-                    Submit Content
-                  </Button>
-                  <Button className="w-full justify-start" variant="outline">
-                    <Users className="w-4 h-4 mr-2" />
-                    Update Profile
-                  </Button>
-                  <Button 
-                    className="w-full justify-start" 
-                    variant="outline"
-                    onClick={() => navigate('/earnings')}
-                  >
-                    <DollarSign className="w-4 h-4 mr-2" />
-                    View Earnings
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
+            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle>Content Status</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Submitted</span>
+                    <span className="font-semibold">{dashboardData?.contentStatus?.submitted || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Approved</span>
+                    <span className="font-semibold text-green-600">{dashboardData?.contentStatus?.approved || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Pending</span>
+                    <span className="font-semibold text-yellow-600">{dashboardData?.contentStatus?.pending || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Rejected</span>
+                    <span className="font-semibold text-red-600">{dashboardData?.contentStatus?.rejected || 0}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </main>
       </div>
@@ -433,5 +400,57 @@ function MetricCard({ label, value, icon: Icon }: {
       </div>
       <Icon className="w-6 h-6 text-slate-400" />
     </div>
+  )
+}
+
+function OverviewCard({ title, value, subtitle, icon, trend }: {
+  title: string,
+  value: string | number,
+  subtitle?: string,
+  icon: React.ReactNode,
+  trend?: string
+}) {
+  return (
+    <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+      <CardContent>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm font-medium text-slate-600">{title}</div>
+          <div className="text-xs text-slate500">{trend}</div>
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="text-2xl font-bold text-slate-900">{value}</div>
+          <div className="text-slate-400">{icon}</div>
+        </div>
+        {subtitle && (
+          <div className="mt-1 text-sm text-slate-600">{subtitle}</div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function ActionCard({ title, description, icon, onClick }: {
+  title: string,
+  description: string,
+  icon: React.ReactNode,
+  onClick: () => void
+}) {
+  return (
+    <Card 
+      className="shadow-lg border-0 bg-white/80 backdrop-blur-sm cursor-pointer"
+      onClick={onClick}
+    >
+      <CardContent>
+        <div className="flex items-center">
+          <div className="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center mr-4">
+            {icon}
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+            <p className="text-sm text-slate-600">{description}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   )
 }

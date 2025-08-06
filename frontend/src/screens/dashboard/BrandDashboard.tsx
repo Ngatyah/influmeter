@@ -23,6 +23,7 @@ import { Badge } from '../../components/ui/badge'
 import { useAppSelector, useAppDispatch } from '../../hooks/redux'
 import { logoutUser } from '../../store/slices/authSlice'
 import { useNavigate } from 'react-router-dom'
+import NotificationSystem from '../../components/notifications/NotificationSystem'
 
 export default function BrandDashboard() {
   const navigate = useNavigate()
@@ -79,35 +80,31 @@ export default function BrandDashboard() {
   ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm border-b border-slate-200 px-6 py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <img 
-              src={user?.avatar || "/api/placeholder/80/80"} 
-              alt={user?.name || "Brand"}
-              className="w-12 h-12 rounded-full object-cover"
-            />
-            <div>
-              <h1 className="text-2xl font-semibold text-slate-900">{user?.name}</h1>
-              <p className="text-slate-600">Brand Dashboard</p>
-            </div>
+          <div>
+            <h1 className="text-2xl font-semibold text-slate-900">Brand Dashboard</h1>
+            <p className="text-slate-600">Welcome back, manage your campaigns</p>
           </div>
-          <div className="flex items-center space-x-3">
-            <Button 
-              className="bg-primary hover:bg-primary/90"
-              onClick={() => navigate('/campaigns/create')}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              New Campaign
-            </Button>
-            <Button variant="ghost" size="sm">
-              <Bell className="w-5 h-5" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              Logout
-            </Button>
+          
+          {/* Add notifications to header */}
+          <div className="flex items-center space-x-4">
+            <NotificationSystem userRole="brand" />
+            
+            {/* User profile section */}
+            <div className="flex items-center space-x-3">
+              <img 
+                src="/api/placeholder/40/40" 
+                alt="Profile"
+                className="w-8 h-8 rounded-full object-cover"
+              />
+              <div className="hidden sm:block">
+                <p className="text-sm font-medium text-slate-900">Brand Manager</p>
+                <p className="text-xs text-slate-600">brand@company.com</p>
+              </div>
+            </div>
           </div>
         </div>
       </header>
