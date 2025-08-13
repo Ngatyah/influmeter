@@ -1,0 +1,170 @@
+### Campaign Management End-to-End Testing
+### This file tests the complete campaign workflow from creation to application
+
+### Variables
+@baseUrl = http://localhost:3000/api
+@brandToken = your_brand_jwt_token_here
+@influencerToken = your_influencer_jwt_token_here
+
+### 1. Brand Authentication (Get token first)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "brand@example.com",
+  "password": "password123"
+}
+
+### 2. Create Campaign (Brand)
+POST {{baseUrl}}/campaigns
+Authorization: Bearer {{brandToken}}
+Content-Type: application/json
+
+{
+  "title": "Summer Fashion Collection 2024",
+  "objective": "Brand Awareness",
+  "description": "Promote our new summer fashion line targeting young adults aged 18-30. Looking for authentic lifestyle content creators.",
+  "budget": 1500,
+  "startDate": "2024-05-01",
+  "endDate": "2024-06-15",
+  "targetCriteria": {
+    "demographics": "18-30 years",
+    "interests": ["fashion", "lifestyle"],
+    "location": ["Global"]
+  },
+  "requirements": {
+    "contentTypes": ["Posts", "Stories", "Reels"],
+    "platforms": ["Instagram", "TikTok"],
+    "minFollowers": 5000
+  }
+}
+
+### 3. Get Brand's Campaigns (Brand Dashboard)
+GET {{baseUrl}}/campaigns/my-campaigns
+Authorization: Bearer {{brandToken}}
+
+### 4. Update Campaign Status to Active (Launch Campaign)
+PUT {{baseUrl}}/campaigns/CAMPAIGN_ID_HERE/status
+Authorization: Bearer {{brandToken}}
+Content-Type: application/json
+
+{
+  "status": "ACTIVE"
+}
+
+### 5. Browse Available Campaigns (Influencer View)
+GET {{baseUrl}}/campaigns/browse
+Authorization: Bearer {{influencerToken}}
+
+### 6. Get Specific Campaign Details (Influencer)
+GET {{baseUrl}}/campaigns/CAMPAIGN_ID_HERE
+Authorization: Bearer {{influencerToken}}
+
+### 7. Apply to Campaign (Influencer)
+POST {{baseUrl}}/campaigns/CAMPAIGN_ID_HERE/apply
+Authorization: Bearer {{influencerToken}}
+Content-Type: application/json
+
+{
+  "message": "I'm excited about this campaign! I love fashion content and have great engagement with my audience in the 18-30 demographic.",
+  "proposedDeliverables": [
+    "2 Instagram feed posts showcasing the collection",
+    "4 Instagram stories with behind-the-scenes content", 
+    "1 TikTok reel featuring styling tips"
+  ],
+  "applicationData": {
+    "motivation": "Fashion is my passion and I align perfectly with your target audience",
+    "contentIdeas": "Styling videos, outfit transitions, daily wear inspiration",
+    "portfolioLinks": [
+      "https://instagram.com/p/example1",
+      "https://tiktok.com/@user/video/123"
+    ]
+  }
+}
+
+### 8. Get Campaign Applications (Brand Review)
+GET {{baseUrl}}/campaigns/CAMPAIGN_ID_HERE/applications
+Authorization: Bearer {{brandToken}}
+
+### 9. Accept Application (Brand)
+PUT {{baseUrl}}/campaigns/applications/APPLICATION_ID_HERE/status
+Authorization: Bearer {{brandToken}}
+Content-Type: application/json
+
+{
+  "status": "ACCEPTED",
+  "message": "Welcome to the campaign! Looking forward to your creative content."
+}
+
+### 10. Get Updated Campaign with Participants (Brand)
+GET {{baseUrl}}/campaigns/CAMPAIGN_ID_HERE
+Authorization: Bearer {{brandToken}}
+
+### 11. Test Search and Filtering (Influencer)
+GET {{baseUrl}}/campaigns/browse?search=fashion&minBudget=1000
+Authorization: Bearer {{influencerToken}}
+
+### 12. Pause Campaign (Brand)
+PUT {{baseUrl}}/campaigns/CAMPAIGN_ID_HERE/status
+Authorization: Bearer {{brandToken}}
+Content-Type: application/json
+
+{
+  "status": "PAUSED"
+}
+
+### 13. Update Campaign Details (Brand)
+PUT {{baseUrl}}/campaigns/CAMPAIGN_ID_HERE
+Authorization: Bearer {{brandToken}}
+Content-Type: application/json
+
+{
+  "title": "Summer Fashion Collection 2024 - Extended",
+  "description": "Updated description with more details about the campaign objectives.",
+  "budget": 2000,
+  "endDate": "2024-07-15"
+}
+
+### 14. Complete Campaign (Brand)
+PUT {{baseUrl}}/campaigns/CAMPAIGN_ID_HERE/status
+Authorization: Bearer {{brandToken}}
+Content-Type: application/json
+
+{
+  "status": "COMPLETED"
+}
+
+### Test Error Cases
+
+### 15. Try to apply to same campaign twice (should fail)
+POST {{baseUrl}}/campaigns/CAMPAIGN_ID_HERE/apply
+Authorization: Bearer {{influencerToken}}
+Content-Type: application/json
+
+{
+  "message": "Trying to apply again"
+}
+
+### 16. Try to access campaign without authentication (should fail)
+GET {{baseUrl}}/campaigns/browse
+
+### 17. Try to create campaign without required fields (should fail)
+POST {{baseUrl}}/campaigns
+Authorization: Bearer {{brandToken}}
+Content-Type: application/json
+
+{
+  "title": "Incomplete Campaign"
+}
+
+### Test Workflow Summary:
+# 1. Brand creates campaign (DRAFT status)
+# 2. Brand launches campaign (ACTIVE status) 
+# 3. Influencers browse and view campaign details
+# 4. Influencer submits application
+# 5. Brand reviews applications
+# 6. Brand accepts/rejects applications
+# 7. Campaign runs with accepted influencers
+# 8. Brand can pause/resume campaign
+# 9. Brand completes campaign
+# 10. All participants and applications are tracked

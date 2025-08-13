@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { 
   ArrowLeft, 
@@ -18,6 +18,8 @@ import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Badge } from '../../components/ui/badge'
 import { Checkbox } from '../../components/ui/checkbox'
+import { campaignService, Campaign } from '../../services/campaign.service'
+import { formatSafeDate } from '../../utils/dateUtils'
 
 interface ApplicationData {
   motivation: string
@@ -34,6 +36,9 @@ export default function CampaignApplication() {
   const navigate = useNavigate()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [campaign, setCampaign] = useState<Campaign | null>(null)
+  const [loading, setLoading] = useState(true)
   
   const [applicationData, setApplicationData] = useState<ApplicationData>({
     motivation: '',
@@ -45,8 +50,29 @@ export default function CampaignApplication() {
     agreedToDeadlines: false
   })
 
-  // Mock campaign data - replace with API call
-  const campaign = {
+  // Load campaign data
+  useEffect(() => {
+    if (id) {
+      loadCampaignData()
+    }
+  }, [id])
+
+  const loadCampaignData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const campaignData = await campaignService.getCampaign(id!)
+      setCampaign(campaignData)
+    } catch (error) {
+      console.error('Failed to load campaign:', error)
+      setError(error instanceof Error ? error.message : 'Failed to load campaign')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Mock campaign data for fallback - replace with API call
+  const mockCampaign = {
     id,
     title: 'Summer Skincare Collection Launch',
     brand: {
@@ -99,25 +125,82 @@ export default function CampaignApplication() {
   }
 
   const handleSubmit = async () => {
-    if (!isFormValid()) return
+    if (!isFormValid() || !id) return
     
-    setIsSubmitting(true)
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    setIsSubmitting(false)
-    setShowSuccess(true)
-    
-    // Redirect after 3 seconds
-    setTimeout(() => {
-      navigate('/campaigns/browse')
-    }, 3000)
+    try {
+      setIsSubmitting(true)
+      setError(null)
+      
+      // Prepare application data for API
+      const apiApplicationData = {
+        message: applicationData.motivation,
+        proposedDeliverables: [
+          applicationData.contentIdeas,
+          applicationData.proposedTimeline
+        ].filter(Boolean),
+        applicationData: {
+          motivation: applicationData.motivation,
+          contentIdeas: applicationData.contentIdeas,
+          proposedTimeline: applicationData.proposedTimeline,
+          portfolioLinks: applicationData.portfolioLinks.filter(link => link.trim() !== ''),
+          agreedToTerms: applicationData.agreedToTerms,
+          agreedToExclusivity: applicationData.agreedToExclusivity,
+          agreedToDeadlines: applicationData.agreedToDeadlines
+        }
+      }
+      
+      // Submit application via API
+      await campaignService.applyToCampaign(id, apiApplicationData)
+      
+      setIsSubmitting(false)
+      setShowSuccess(true)
+      
+      // Redirect after 3 seconds to campaign details (so user sees updated status)
+      setTimeout(() => {
+        navigate(`/campaigns/${id}/details`)
+      }, 3000)
+      
+    } catch (error) {
+      console.error('Failed to submit application:', error)
+      setError(error instanceof Error ? error.message : 'Failed to submit application')
+      setIsSubmitting(false)
+    }
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-600">Loading campaign details...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (error && !campaign) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-slate-900 mb-2">Campaign Not Found</h2>
+          <p className="text-slate-600 mb-4">{error}</p>
+          <Button onClick={() => navigate('/campaigns/browse')}>
+            Back to Campaigns
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   if (showSuccess) {
-    return <SuccessScreen campaign={campaign} />
+    return <SuccessScreen campaign={campaign || mockCampaign} />
   }
+
+  // Use real campaign data or fallback to mock
+  const displayCampaign = campaign || mockCampaign
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -131,11 +214,33 @@ export default function CampaignApplication() {
             </Button>
             <div>
               <h1 className="text-2xl font-semibold text-slate-900">Apply to Campaign</h1>
-              <p className="text-slate-600">{campaign.title}</p>
+              <p className="text-slate-600">{displayCampaign.title}</p>
             </div>
           </div>
         </div>
       </header>
+
+      {/* Error Display */}
+      {error && (
+        <div className="max-w-4xl mx-auto px-6 pt-4">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+                <p className="text-sm text-red-800">{error}</p>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setError(null)}
+                className="text-red-600 hover:text-red-700"
+              >
+                ×
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-4xl mx-auto px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -228,7 +333,7 @@ export default function CampaignApplication() {
                     Portfolio Examples
                   </label>
                   <p className="text-sm text-slate-600 mb-3">
-                    Share links to your best content related to beauty, skincare, or similar campaigns
+                    Share links to your best content related to this campaign
                   </p>
                   {applicationData.portfolioLinks.map((link, index) => (
                     <div key={index} className="flex items-center space-x-2 mb-2">
@@ -363,16 +468,21 @@ export default function CampaignApplication() {
               <CardContent className="p-6">
                 <div className="flex items-center space-x-3 mb-4">
                   <img 
-                    src={campaign.brand.logo} 
-                    alt={campaign.brand.name}
+                    src={displayCampaign.brand?.brandProfile?.logoUrl || displayCampaign.brand?.logo || '/api/placeholder/60/60'} 
+                    alt={displayCampaign.brand?.brandProfile?.companyName || displayCampaign.brand?.name || 'Brand'}
                     className="w-12 h-12 rounded-full object-cover"
                   />
                   <div>
                     <div className="flex items-center space-x-1">
-                      <h3 className="font-semibold text-slate-900">{campaign.brand.name}</h3>
-                      {campaign.brand.verified && <Star className="w-4 h-4 text-yellow-500" />}
+                      <h3 className="font-semibold text-slate-900">
+                        {displayCampaign.brand?.brandProfile?.companyName || 
+                         displayCampaign.brand?.name ||
+                         `${displayCampaign.brand?.profile?.firstName || ''} ${displayCampaign.brand?.profile?.lastName || ''}`.trim() ||
+                         'Brand'}
+                      </h3>
+                      {displayCampaign.brand?.verified && <Star className="w-4 h-4 text-yellow-500" />}
                     </div>
-                    <p className="text-sm text-slate-600">{campaign.title}</p>
+                    <p className="text-sm text-slate-600">{displayCampaign.title}</p>
                   </div>
                 </div>
 
@@ -382,23 +492,24 @@ export default function CampaignApplication() {
                       <DollarSign className="w-4 h-4 text-green-500" />
                       <span className="text-sm text-slate-600">Payout</span>
                     </div>
-                    <span className="font-semibold text-green-600">{campaign.payout}</span>
+                    <span className="font-semibold text-green-600">
+                      {displayCampaign.budget ? `$${displayCampaign.budget}` : displayCampaign.payout || 'TBD'}
+                    </span>
                   </div>
                   
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <Clock className="w-4 h-4 text-blue-500" />
-                      <span className="text-sm text-slate-600">Est. Time</span>
-                    </div>
-                    <span className="text-sm text-slate-900">{campaign.estimatedHours}</span>
-                  </div>
-
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <Calendar className="w-4 h-4 text-orange-500" />
                       <span className="text-sm text-slate-600">Deadline</span>
                     </div>
-                    <span className="text-sm text-slate-900">{new Date(campaign.deadline).toLocaleDateString()}</span>
+                    <span className="text-sm text-slate-900">
+                      {displayCampaign.endDate ? 
+                        formatSafeDate(displayCampaign.endDate) : 
+                        displayCampaign.deadline ? 
+                          formatSafeDate(displayCampaign.deadline) : 
+                          'Not set'
+                      }
+                    </span>
                   </div>
 
                   <div className="flex items-center justify-between">
@@ -406,7 +517,9 @@ export default function CampaignApplication() {
                       <Users className="w-4 h-4 text-purple-500" />
                       <span className="text-sm text-slate-600">Spots</span>
                     </div>
-                    <span className="text-sm text-slate-900">{campaign.participantsCount}/{campaign.maxParticipants}</span>
+                    <span className="text-sm text-slate-900">
+                      {displayCampaign.participantsCount || 0}/{displayCampaign.maxParticipants || displayCampaign.influencersNeeded || '∞'}
+                    </span>
                   </div>
                 </div>
               </CardContent>
@@ -418,32 +531,43 @@ export default function CampaignApplication() {
                 <CardTitle className="text-lg">Requirements</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div>
-                  <span className="text-sm text-slate-600">Min Followers:</span>
-                  <Badge className="ml-2">{campaign.requirements.minFollowers}</Badge>
-                </div>
+                {displayCampaign.requirements?.minFollowers && (
+                  <div>
+                    <span className="text-sm text-slate-600">Min Followers:</span>
+                    <Badge className="ml-2">{displayCampaign.requirements.minFollowers}</Badge>
+                  </div>
+                )}
                 
-                <div>
-                  <span className="text-sm text-slate-600">Platforms:</span>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {campaign.requirements.platforms.map((platform) => (
-                      <Badge key={platform} variant="secondary" className="text-xs">
-                        {platform}
-                      </Badge>
-                    ))}
+                {displayCampaign.requirements?.platforms && (
+                  <div>
+                    <span className="text-sm text-slate-600">Platforms:</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {displayCampaign.requirements.platforms.map((platform) => (
+                        <Badge key={platform} variant="secondary" className="text-xs">
+                          {platform}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                <div>
-                  <span className="text-sm text-slate-600">Content Types:</span>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {campaign.requirements.contentType.map((type) => (
-                      <Badge key={type} variant="outline" className="text-xs">
-                        {type}
-                      </Badge>
-                    ))}
+                {displayCampaign.requirements?.contentType && (
+                  <div>
+                    <span className="text-sm text-slate-600">Content Types:</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {displayCampaign.requirements.contentType.map((type) => (
+                        <Badge key={type} variant="outline" className="text-xs">
+                          {type}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* Fallback for mock data or incomplete requirements */}
+                {!displayCampaign.requirements && (
+                  <p className="text-sm text-slate-500">No specific requirements listed</p>
+                )}
               </CardContent>
             </Card>
 
@@ -469,7 +593,7 @@ export default function CampaignApplication() {
   )
 }
 
-function SuccessScreen({ campaign }: { campaign: any }) {
+function SuccessScreen({ campaign }: { campaign: Campaign }) {
   const navigate = useNavigate()
 
   return (
@@ -482,7 +606,11 @@ function SuccessScreen({ campaign }: { campaign: any }) {
           
           <h2 className="text-xl font-bold text-slate-900 mb-2">Application Submitted!</h2>
           <p className="text-slate-600 mb-6">
-            Your application for "{campaign.title}" has been sent to {campaign.brand.name}. 
+            Your application for "{campaign.title}" has been sent to {
+              campaign?.brand?.brandProfile?.companyName || 
+              `${campaign?.brand?.profile?.firstName || ''} ${campaign?.brand?.profile?.lastName || ''}`.trim() || 
+              'the brand'
+            }. 
             You'll receive a notification within 2-3 business days.
           </p>
 

@@ -22,3 +22,12 @@ export function LoadingPage({ message = 'Loading...' }: { message?: string }) {
     </div>
   )
 }
+
+export function Loading({ size = 'md', text }: { size?: 'sm' | 'md' | 'lg', text?: string }) {
+  return (
+    <div className="flex items-center justify-center space-x-2">
+      <LoadingSpinner size={size} />
+      {text && <span className="text-slate-600">{text}</span>}
+    </div>
+  )
+}

@@ -8,13 +8,13 @@ docker-compose up -d
  npx prisma generate
 
 ## Start Backend
-
+npm run start:dev
 
 A comprehensive influencer marketing platform connecting brands with content creators across Africa.
 
 ## 🚀 Features
 
-### For Influencers
+### For Influencer
 - **Dashboard** - Track campaigns, earnings, and performance
 - **Campaign Discovery** - Browse and apply to relevant campaigns
 - **Content Submission** - Upload and manage campaign content

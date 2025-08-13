@@ -79,6 +79,13 @@ enum ContentType {
   POST
 }
 
+enum PostStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  INVALID_URL
+  DELETED
+}
+
 // Core User Models
 model User {
   id            String     @id @default(uuid())
@@ -182,19 +189,25 @@ model BrandProfile {
 
 // Campaign Models
 model Campaign {
-  id             String         @id @default(uuid())
-  brandId        String         @map("brand_id")
-  title          String
-  description    String?
-  objective      String?
-  budget         Decimal?       @db.Decimal(10, 2)
-  startDate      DateTime?      @map("start_date")
-  endDate        DateTime?      @map("end_date")
-  status         CampaignStatus @default(DRAFT)
-  requirements   Json           @default("{}")
-  targetCriteria Json           @default("{}") @map("target_criteria")
-  createdAt      DateTime       @default(now()) @map("created_at")
-  updatedAt      DateTime       @updatedAt @map("updated_at")
+  id                     String         @id @default(uuid())
+  brandId                String         @map("brand_id")
+  title                  String
+  description            String?
+  objective              String?
+  budget                 Decimal?       @db.Decimal(10, 2)
+  startDate              DateTime?      @map("start_date")
+  endDate                DateTime?      @map("end_date")
+  status                 CampaignStatus @default(DRAFT)
+  requirements           Json           @default("{}")
+  targetCriteria         Json           @default("{}") @map("target_criteria")
+  
+  // Approval Settings
+  requiresApproval       Boolean        @default(true) @map("requires_approval")
+  autoApproveInfluencers String[]       @default([]) @map("auto_approve_influencers")
+  approvalInstructions   String?        @map("approval_instructions")
+  
+  createdAt              DateTime       @default(now()) @map("created_at")
+  updatedAt              DateTime       @updatedAt @map("updated_at")
 
   // Relations
   brand                User                  @relation(fields: [brandId], references: [id])
@@ -257,11 +270,12 @@ model ContentSubmission {
   paidAt       DateTime?     @map("paid_at")
 
   // Relations
-  campaign    Campaign           @relation(fields: [campaignId], references: [id])
-  influencer  User               @relation(fields: [influencerId], references: [id])
-  files       ContentFile[]
-  performance ContentPerformance?
-  payments    Payment[]
+  campaign      Campaign           @relation(fields: [campaignId], references: [id])
+  influencer    User               @relation(fields: [influencerId], references: [id])
+  files         ContentFile[]
+  performance   ContentPerformance?
+  payments      Payment[]
+  publishedPosts PublishedPost[]
 
   @@map("content_submissions")
 }
@@ -293,6 +307,45 @@ model ContentPerformance {
   content ContentSubmission @relation(fields: [contentId], references: [id], onDelete: Cascade)
 
   @@map("content_performance")
+}
+
+model PublishedPost {
+  id             String     @id @default(uuid())
+  contentId      String     @map("content_id")
+  platform       String     // instagram, tiktok, youtube, twitter
+  postUrl        String     @map("post_url")
+  platformPostId String?    @map("platform_post_id")
+  postType       String?    @map("post_type") // POST, STORY, REEL, VIDEO
+  publishedAt    DateTime   @map("published_at")
+  status         PostStatus @default(PENDING_VERIFICATION)
+  verifiedAt     DateTime?  @map("verified_at")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  contentSubmission ContentSubmission @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  performance       PostPerformance?
+
+  @@map("published_posts")
+}
+
+model PostPerformance {
+  publishedPostId String   @id @map("published_post_id")
+  views           BigInt   @default(0)
+  likes           BigInt   @default(0)
+  comments        BigInt   @default(0)
+  shares          BigInt   @default(0)
+  saves           BigInt   @default(0)
+  clicks          BigInt   @default(0)
+  impressions     BigInt   @default(0)
+  reach           BigInt   @default(0)
+  engagementRate  Decimal? @db.Decimal(5, 2) @map("engagement_rate")
+  ctr             Decimal? @db.Decimal(5, 2) // Click-through rate
+  lastUpdated     DateTime @default(now()) @map("last_updated")
+
+  publishedPost PublishedPost @relation(fields: [publishedPostId], references: [id], onDelete: Cascade)
+
+  @@map("post_performance")
 }
 
 // Payment Models

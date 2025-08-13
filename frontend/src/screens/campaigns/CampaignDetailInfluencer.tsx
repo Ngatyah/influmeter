@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { 
   ArrowLeft, 
@@ -22,89 +22,96 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
+import { campaignService, Campaign } from '../../services/campaign.service'
+import { Loader2, RefreshCw, AlertTriangle } from 'lucide-react'
+import { formatSafeDate } from '../../utils/dateUtils'
 
 export default function CampaignDetailInfluencer() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [isBookmarked, setIsBookmarked] = useState(false)
+  const [campaign, setCampaign] = useState<Campaign | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [hasApplied, setHasApplied] = useState(false)
 
-  // Mock campaign data - replace with API call
-  const campaign = {
-    id,
-    title: 'Summer Skincare Collection Launch',
-    brand: {
-      name: 'NIVEA Kenya',
-      logo: '/api/placeholder/80/80',
-      verified: true,
-      description: 'Leading skincare brand in East Africa, committed to natural beauty solutions.',
-      website: 'https://nivea.co.ke'
-    },
-    description: 'We are launching our new summer skincare collection and looking for authentic content creators to showcase our products. This campaign focuses on natural beauty and the importance of proper skincare during sunny months.',
-    fullBrief: `
-      **Campaign Objective:**
-      Promote NIVEA's new summer skincare collection targeting young adults aged 18-35 in Kenya and Tanzania.
+  // Load campaign from backend
+  useEffect(() => {
+    if (id) {
+      loadCampaign()
+    }
+  }, [id])
 
-      **Key Messages:**
-      - Natural protection for African skin
-      - Suitable for all skin types
-      - Affordable luxury skincare
-      - Local ingredients, global quality
-
-      **Content Guidelines:**
-      - Show authentic daily skincare routines
-      - Highlight product benefits naturally
-      - Include before/after if possible
-      - Maintain positive, uplifting tone
-      - Tag @niveakenya in all posts
-
-      **Deliverables:**
-      - 2x Instagram Reels (15-30 seconds each)
-      - 4x Instagram Stories
-      - 1x Static feed post
-      - Must use hashtags: #NIVEASummer #NaturalGlow #SkincareRoutine
-    `,
-    payout: '$250-500',
-    payoutDetails: {
-      baseAmount: '$250',
-      bonusOpportunities: 'Up to $250 bonus for exceptional performance (views, engagement, conversions)',
-      paymentTerms: 'Payment within 14 days of content approval'
-    },
-    deadline: '2024-05-15',
-    timeline: {
-      applicationDeadline: '2024-04-20',
-      contentSubmissionDeadline: '2024-05-10',
-      campaignEnd: '2024-05-15'
-    },
-    requirements: {
-      minFollowers: '10,000+',
-      platforms: ['Instagram', 'TikTok'],
-      contentType: ['Reels', 'Stories', 'Static Posts'],
-      niches: ['Beauty', 'Lifestyle', 'Skincare'],
-      demographics: 'Female-focused content preferred',
-      location: ['Kenya', 'Tanzania']
-    },
-    location: ['Kenya', 'Tanzania'],
-    participantsCount: 12,
-    maxParticipants: 20,
-    status: 'open',
-    difficulty: 'easy',
-    estimatedHours: '2-3 hours',
-    hasApplied: false,
-    terms: {
-      exclusivity: '30 days exclusivity for skincare brands',
-      usage: 'Brand may repost content with credit',
-      deliverables: 'All content must be submitted within deadline',
-      revisions: 'Up to 2 revision requests may be made'
-    },
-    brandAssets: [
-      { name: 'Brand Guidelines.pdf', size: '2.1 MB' },
-      { name: 'Product Images.zip', size: '15.3 MB' },
-      { name: 'Logo Pack.zip', size: '5.2 MB' }
-    ]
+  const loadCampaign = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const campaignData = await campaignService.getCampaign(id!)
+      setCampaign(campaignData)
+      
+      // Check if user has already applied
+      const applicationStatus = await campaignService.checkApplicationStatus(id!)
+      setHasApplied(applicationStatus.hasApplied)
+    } catch (error) {
+      console.error('Failed to load campaign:', error)
+      setError(error instanceof Error ? error.message : 'Failed to load campaign')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleApply = () => {
     navigate(`/campaigns/${id}/apply`)
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-slate-600">Loading campaign...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center max-w-md">
+            <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-slate-900 mb-2">Failed to Load Campaign</h2>
+            <p className="text-slate-600 mb-4">{error}</p>
+            <div className="space-x-2">
+              <Button onClick={loadCampaign}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Try Again
+              </Button>
+              <Button variant="outline" onClick={() => navigate('/campaigns/browse')}>Back to Campaigns</Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // No campaign data
+  if (!campaign) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <AlertTriangle className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+            <p className="text-slate-600">Campaign not found</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -144,16 +151,20 @@ export default function CampaignDetailInfluencer() {
               <CardContent className="p-6">
                 <div className="flex items-start space-x-4 mb-6">
                   <img 
-                    src={campaign.brand.logo} 
-                    alt={campaign.brand.name}
+                    src={campaign?.brand?.brandProfile?.logoUrl || '/api/placeholder/80/80'} 
+                    alt={campaign?.brand?.brandProfile?.companyName || 'Brand'}
                     className="w-16 h-16 rounded-full object-cover"
                   />
                   <div className="flex-1">
                     <div className="flex items-center space-x-2 mb-1">
-                      <h3 className="text-lg font-semibold text-slate-900">{campaign.brand.name}</h3>
-                      {campaign.brand.verified && <Star className="w-5 h-5 text-yellow-500" />}
+                      <h3 className="text-lg font-semibold text-slate-900">
+                        {campaign?.brand?.brandProfile?.companyName || 
+                         `${campaign?.brand?.profile?.firstName || ''} ${campaign?.brand?.profile?.lastName || ''}`.trim() || 
+                         'Unknown Brand'}
+                      </h3>
+                      <Star className="w-5 h-5 text-yellow-500" />
                     </div>
-                    <p className="text-sm text-slate-600 mb-2">{campaign.brand.description}</p>
+                    <p className="text-sm text-slate-600 mb-2">{campaign?.description || 'Campaign description not available'}</p>
                     <Button variant="ghost" size="sm" className="text-blue-600 p-0 h-auto">
                       <ExternalLink className="w-3 h-3 mr-1" />
                       Visit Website
@@ -161,29 +172,29 @@ export default function CampaignDetailInfluencer() {
                   </div>
                 </div>
 
-                <h1 className="text-2xl font-bold text-slate-900 mb-4">{campaign.title}</h1>
-                <p className="text-slate-600 mb-6">{campaign.description}</p>
+                <h1 className="text-2xl font-bold text-slate-900 mb-4">{campaign?.title}</h1>
+                <p className="text-slate-600 mb-6">{campaign?.description || 'Campaign description not available'}</p>
 
                 {/* Key Metrics */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="text-center p-3 bg-green-50 rounded-lg">
                     <DollarSign className="w-6 h-6 text-green-500 mx-auto mb-1" />
-                    <p className="text-lg font-bold text-green-600">{campaign.payout}</p>
+                    <p className="text-lg font-bold text-green-600">{campaign?.budget ? `$${campaign.budget}` : 'TBD'}</p>
                     <p className="text-xs text-slate-600">Payout</p>
                   </div>
                   <div className="text-center p-3 bg-blue-50 rounded-lg">
                     <Clock className="w-6 h-6 text-blue-500 mx-auto mb-1" />
-                    <p className="text-lg font-bold text-blue-600">{campaign.estimatedHours}</p>
+                    <p className="text-lg font-bold text-blue-600">3-5 hours</p>
                     <p className="text-xs text-slate-600">Est. Time</p>
                   </div>
                   <div className="text-center p-3 bg-purple-50 rounded-lg">
                     <Users className="w-6 h-6 text-purple-500 mx-auto mb-1" />
-                    <p className="text-lg font-bold text-purple-600">{campaign.participantsCount}/{campaign.maxParticipants}</p>
+                    <p className="text-lg font-bold text-purple-600">{campaign?._count?.participants || 0}/50</p>
                     <p className="text-xs text-slate-600">Participants</p>
                   </div>
                   <div className="text-center p-3 bg-orange-50 rounded-lg">
                     <Calendar className="w-6 h-6 text-orange-500 mx-auto mb-1" />
-                    <p className="text-lg font-bold text-orange-600">{new Date(campaign.deadline).toLocaleDateString()}</p>
+                    <p className="text-lg font-bold text-orange-600">{campaign?.endDate ? formatSafeDate(campaign.endDate) : 'TBD'}</p>
                     <p className="text-xs text-slate-600">Deadline</p>
                   </div>
                 </div>
@@ -205,7 +216,7 @@ export default function CampaignDetailInfluencer() {
                     <div className="prose prose-sm max-w-none">
                       <h3 className="text-lg font-semibold mb-4">Campaign Brief</h3>
                       <div className="whitespace-pre-line text-slate-700">
-                        {campaign.fullBrief}
+                        {campaign?.description || 'Full campaign brief will be available after application approval.'}
                       </div>
                     </div>
                   </TabsContent>
@@ -217,11 +228,11 @@ export default function CampaignDetailInfluencer() {
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <span className="text-sm text-slate-600">Minimum Followers:</span>
-                            <Badge className="ml-2">{campaign.requirements.minFollowers}</Badge>
+                            <Badge className="ml-2">5K+</Badge>
                           </div>
                           <div>
                             <span className="text-sm text-slate-600">Demographics:</span>
-                            <span className="ml-2 text-sm text-slate-900">{campaign.requirements.demographics}</span>
+                            <span className="ml-2 text-sm text-slate-900">All demographics welcome</span>
                           </div>
                         </div>
                       </div>
@@ -229,27 +240,25 @@ export default function CampaignDetailInfluencer() {
                       <div>
                         <h4 className="font-semibold text-slate-900 mb-3">Platform Requirements</h4>
                         <div className="flex flex-wrap gap-2">
-                          {campaign.requirements.platforms.map((platform) => (
-                            <Badge key={platform} variant="secondary">{platform}</Badge>
-                          ))}
+                          <Badge variant="secondary">Instagram</Badge>
+                          <Badge variant="secondary">TikTok</Badge>
                         </div>
                       </div>
 
                       <div>
                         <h4 className="font-semibold text-slate-900 mb-3">Content Types</h4>
                         <div className="flex flex-wrap gap-2">
-                          {campaign.requirements.contentType.map((type) => (
-                            <Badge key={type} variant="outline">{type}</Badge>
-                          ))}
+                          <Badge variant="outline">Posts</Badge>
+                          <Badge variant="outline">Stories</Badge>
+                          <Badge variant="outline">Reels</Badge>
                         </div>
                       </div>
 
                       <div>
                         <h4 className="font-semibold text-slate-900 mb-3">Niches</h4>
                         <div className="flex flex-wrap gap-2">
-                          {campaign.requirements.niches.map((niche) => (
-                            <Badge key={niche} className="bg-blue-50 text-blue-700">{niche}</Badge>
-                          ))}
+                          <Badge className="bg-blue-50 text-blue-700">Lifestyle</Badge>
+                          <Badge className="bg-blue-50 text-blue-700">General</Badge>
                         </div>
                       </div>
                     </div>
@@ -271,27 +280,27 @@ export default function CampaignDetailInfluencer() {
                         <div>
                           <h4 className="font-semibold text-slate-900">Payment Details</h4>
                           <ul className="mt-2 space-y-1 text-sm text-slate-600">
-                            <li>• Base Amount: {campaign.payoutDetails.baseAmount}</li>
-                            <li>• Bonus: {campaign.payoutDetails.bonusOpportunities}</li>
-                            <li>• Payment Terms: {campaign.payoutDetails.paymentTerms}</li>
+                            <li>• Base Amount: {campaign?.budget ? `$${campaign.budget}` : 'TBD'}</li>
+                            <li>• Bonus: Performance-based bonus opportunities available</li>
+                            <li>• Payment Terms: Payment within 14 days of content approval</li>
                           </ul>
                         </div>
 
                         <div>
                           <h4 className="font-semibold text-slate-900">Usage Rights</h4>
                           <ul className="mt-2 space-y-1 text-sm text-slate-600">
-                            <li>• Exclusivity: {campaign.terms.exclusivity}</li>
-                            <li>• Content Usage: {campaign.terms.usage}</li>
-                            <li>• Revisions: {campaign.terms.revisions}</li>
+                            <li>• Exclusivity: 30 days exclusivity for similar brands</li>
+                            <li>• Content Usage: Brand may repost content with credit</li>
+                            <li>• Revisions: Up to 2 revision requests may be made</li>
                           </ul>
                         </div>
 
                         <div>
                           <h4 className="font-semibold text-slate-900">Timeline</h4>
                           <ul className="mt-2 space-y-1 text-sm text-slate-600">
-                            <li>• Application Deadline: {new Date(campaign.timeline.applicationDeadline).toLocaleDateString()}</li>
-                            <li>• Content Submission: {new Date(campaign.timeline.contentSubmissionDeadline).toLocaleDateString()}</li>
-                            <li>• Campaign End: {new Date(campaign.timeline.campaignEnd).toLocaleDateString()}</li>
+                            <li>• Campaign Start: {campaign?.startDate ? formatSafeDate(campaign.startDate) : 'TBD'}</li>
+                            <li>• Campaign End: {campaign?.endDate ? formatSafeDate(campaign.endDate) : 'TBD'}</li>
+                            <li>• Application Review: 2-3 business days</li>
                           </ul>
                         </div>
                       </div>
@@ -300,24 +309,35 @@ export default function CampaignDetailInfluencer() {
                   
                   <TabsContent value="assets" className="mt-6">
                     <div className="space-y-4">
-                      <p className="text-sm text-slate-600">Download brand assets to help create your content:</p>
+                      <p className="text-sm text-slate-600">Brand assets will be available after application approval:</p>
                       
                       <div className="space-y-3">
-                        {campaign.brandAssets.map((asset, index) => (
-                          <div key={index} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg">
-                            <div className="flex items-center space-x-3">
-                              <FileText className="w-5 h-5 text-slate-400" />
-                              <div>
-                                <p className="text-sm font-medium text-slate-900">{asset.name}</p>
-                                <p className="text-xs text-slate-500">{asset.size}</p>
-                              </div>
+                        <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg opacity-50">
+                          <div className="flex items-center space-x-3">
+                            <FileText className="w-5 h-5 text-slate-400" />
+                            <div>
+                              <p className="text-sm font-medium text-slate-900">Brand Guidelines.pdf</p>
+                              <p className="text-xs text-slate-500">Available after approval</p>
                             </div>
-                            <Button size="sm" variant="outline">
-                              <Download className="w-3 h-3 mr-1" />
-                              Download
-                            </Button>
                           </div>
-                        ))}
+                          <Button size="sm" variant="outline" disabled>
+                            <Download className="w-3 h-3 mr-1" />
+                            Download
+                          </Button>
+                        </div>
+                        <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg opacity-50">
+                          <div className="flex items-center space-x-3">
+                            <FileText className="w-5 h-5 text-slate-400" />
+                            <div>
+                              <p className="text-sm font-medium text-slate-900">Product Images.zip</p>
+                              <p className="text-xs text-slate-500">Available after approval</p>
+                            </div>
+                          </div>
+                          <Button size="sm" variant="outline" disabled>
+                            <Download className="w-3 h-3 mr-1" />
+                            Download
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </TabsContent>
@@ -342,12 +362,12 @@ export default function CampaignDetailInfluencer() {
                   </div>
                   <Button 
                     onClick={handleApply}
-                    disabled={campaign.hasApplied}
+                    disabled={hasApplied}
                     className="w-full"
                   >
-                    {campaign.hasApplied ? 'Application Submitted' : 'Apply Now'}
+                    {hasApplied ? 'Application Submitted' : 'Apply Now'}
                   </Button>
-                  {!campaign.hasApplied && (
+                  {!hasApplied && (
                     <p className="text-xs text-slate-500">No application fee required</p>
                   )}
                 </div>
@@ -364,19 +384,15 @@ export default function CampaignDetailInfluencer() {
                   <MapPin className="w-4 h-4 text-slate-400" />
                   <div>
                     <p className="text-sm font-medium text-slate-900">Location</p>
-                    <p className="text-sm text-slate-600">{campaign.location.join(', ')}</p>
+                    <p className="text-sm text-slate-600">Global</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-3">
                   <Camera className="w-4 h-4 text-slate-400" />
                   <div>
                     <p className="text-sm font-medium text-slate-900">Difficulty</p>
-                    <Badge className={`text-xs ${
-                      campaign.difficulty === 'easy' ? 'bg-green-50 text-green-600' : 
-                      campaign.difficulty === 'medium' ? 'bg-yellow-50 text-yellow-600' : 
-                      'bg-red-50 text-red-600'
-                    }`}>
-                      {campaign.difficulty.charAt(0).toUpperCase() + campaign.difficulty.slice(1)}
+                    <Badge className="text-xs bg-yellow-50 text-yellow-600">
+                      Medium
                     </Badge>
                   </div>
                 </div>
@@ -384,7 +400,7 @@ export default function CampaignDetailInfluencer() {
                   <Info className="w-4 h-4 text-slate-400" />
                   <div>
                     <p className="text-sm font-medium text-slate-900">Campaign ID</p>
-                    <p className="text-sm text-slate-600 font-mono">#{campaign.id}</p>
+                    <p className="text-sm text-slate-600 font-mono">#{campaign?.id}</p>
                   </div>
                 </div>
               </CardContent>

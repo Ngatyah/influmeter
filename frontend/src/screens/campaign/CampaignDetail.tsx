@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { 
   ArrowLeft, 
@@ -17,19 +17,51 @@ import {
   AlertTriangle,
   MoreHorizontal,
   TrendingUp,
-  Download
+  Download,
+  Loader2,
+  RefreshCw
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
+import { campaignService, Campaign } from '../../services/campaign.service'
+import { contentService } from '../../services/content.service'
+import ApplicationReviewModal from '../../components/ApplicationReviewModal'
+import { formatSafeDate, formatSafeDatetime } from '../../utils/dateUtils'
 
 const tabs = [
   { id: 'overview', label: 'Overview' },
+  { id: 'applications', label: 'Applications' },
   { id: 'influencers', label: 'Influencers' },
   { id: 'content', label: 'Content Approvals' },
   { id: 'metrics', label: 'Metrics' },
 ]
 
+// Helper functions
+const getStatusColor = (status: string) => {
+  switch (status.toLowerCase()) {
+    case 'active': return 'bg-green-100 text-green-800'
+    case 'completed': return 'bg-blue-100 text-blue-800'
+    case 'draft': return 'bg-gray-100 text-gray-800'
+    case 'paused': return 'bg-yellow-100 text-yellow-800'
+    case 'cancelled': return 'bg-red-100 text-red-800'
+    default: return 'bg-gray-100 text-gray-800'
+  }
+}
+
+const formatCurrency = (amount: number | undefined | null) => {
+  if (amount === null || amount === undefined || isNaN(amount)) return '$0'
+  return `$${amount.toLocaleString()}`
+}
+
+const formatNumber = (num: number | undefined | null) => {
+  if (num === null || num === undefined || isNaN(num)) return '0'
+  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`
+  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`
+  return num.toString()
+}
+
+// Using formatSafeDate from utils instead of this function
 
 export default function CampaignDetail() {
   const navigate = useNavigate()
@@ -39,9 +71,206 @@ export default function CampaignDetail() {
   const [selectedContent, setSelectedContent] = useState<any>(null)
   const [showInfluencerModal, setShowInfluencerModal] = useState(false)
   const [selectedInfluencer, setSelectedInfluencer] = useState<any>(null)
+  
+  // State management
+  const [campaign, setCampaign] = useState<Campaign | null>(null)
+  const [applications, setApplications] = useState<any[]>([])
+  const [participants, setParticipants] = useState<any[]>([])
+  const [contentSubmissions, setContentSubmissions] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [applicationsLoading, setApplicationsLoading] = useState(false)
+  const [participantsLoading, setParticipantsLoading] = useState(false)
+  const [contentLoading, setContentLoading] = useState(false)
 
-  // Mock campaign data - in real app, fetch based on ID
-  const campaign = {
+  // Load campaign data
+  useEffect(() => {
+    if (id) {
+      loadCampaign()
+    }
+  }, [id])
+
+  // Load participants and content when campaign is loaded
+  useEffect(() => {
+    if (campaign) {
+      loadParticipants()
+      loadContentSubmissions()
+    }
+  }, [campaign])
+
+  const loadCampaign = async (showRefreshLoader = false) => {
+    if (!id) return
+
+    try {
+      if (showRefreshLoader) {
+        setRefreshing(true)
+      } else {
+        setLoading(true)
+      }
+      setError(null)
+
+      const campaignData = await campaignService.getCampaign(id)
+      setCampaign(campaignData)
+      
+      // Load applications if this is a brand user
+      await loadApplications()
+    } catch (error) {
+      console.error('Failed to load campaign:', error)
+      setError(error instanceof Error ? error.message : 'Failed to load campaign')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
+
+  const loadApplications = async () => {
+    if (!id) return
+
+    try {
+      setApplicationsLoading(true)
+      const applicationsData = await campaignService.getCampaignApplications(id)
+      setApplications(applicationsData)
+    } catch (error) {
+      console.error('Failed to load applications:', error)
+      // Don't show error if it's just because user doesn't have permission (influencer vs brand)
+    } finally {
+      setApplicationsLoading(false)
+    }
+  }
+
+  const loadParticipants = async () => {
+    if (!id || !campaign) return
+
+    try {
+      setParticipantsLoading(true)
+      // Get participants from the campaign data
+      if (campaign.participants) {
+        setParticipants(campaign.participants)
+      }
+    } catch (error) {
+      console.error('Failed to load participants:', error)
+    } finally {
+      setParticipantsLoading(false)
+    }
+  }
+
+  const loadContentSubmissions = async () => {
+    if (!id) return
+
+    try {
+      setContentLoading(true)
+      const contentData = await contentService.getBrandContentSubmissions({ campaignId: id })
+      setContentSubmissions(contentData.contentSubmissions)
+    } catch (error) {
+      console.error('Failed to load content submissions:', error)
+    } finally {
+      setContentLoading(false)
+    }
+  }
+
+  const refreshCampaign = () => {
+    loadCampaign(true)
+  }
+
+  // Update campaign status
+  const updateCampaignStatus = async (newStatus: 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'CANCELLED') => {
+    if (!campaign) return
+
+    try {
+      setRefreshing(true)
+      const updatedCampaign = await campaignService.updateCampaignStatus(campaign.id, newStatus)
+      setCampaign(updatedCampaign)
+      alert(`Campaign status updated to ${newStatus}`)
+    } catch (error) {
+      console.error('Failed to update campaign status:', error)
+      alert('Failed to update campaign status')
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  // Update application status
+  const updateApplicationStatus = async (applicationId: string, status: 'ACCEPTED' | 'REJECTED', message?: string) => {
+    try {
+      await campaignService.updateApplicationStatus(applicationId, status, message)
+      // Reload applications and campaign data
+      await loadApplications()
+      await loadCampaign(true)
+      alert(`Application ${status.toLowerCase()} successfully`)
+    } catch (error) {
+      console.error('Failed to update application status:', error)
+      alert('Failed to update application status')
+    }
+  }
+
+  // Update content status
+  const updateContentStatus = async (contentId: string, status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED' | 'PAID', feedback?: string) => {
+    try {
+      await contentService.updateContentStatus(contentId, status, feedback)
+      // Reload content submissions
+      await loadContentSubmissions()
+      alert(`Content ${status.toLowerCase()} successfully`)
+    } catch (error) {
+      console.error('Failed to update content status:', error)
+      alert('Failed to update content status')
+    }
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-slate-600">Loading campaign...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (error || !campaign) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-slate-900 mb-2">
+              {error || 'Campaign not found'}
+            </h2>
+            <div className="space-x-3">
+              <Button variant="outline" onClick={() => navigate('/campaigns')}>
+                Back to Campaigns
+              </Button>
+              <Button onClick={refreshCampaign} disabled={refreshing}>
+                {refreshing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                Retry
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Helper functions
+  const getStatusIcon = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'active': return <Play className="w-4 h-4" />
+      case 'completed': return <CheckCircle className="w-4 h-4" />
+      case 'draft': return <Edit3 className="w-4 h-4" />
+      case 'paused': return <Clock className="w-4 h-4" />
+      case 'cancelled': return <XCircle className="w-4 h-4" />
+      default: return <Clock className="w-4 h-4" />
+    }
+  }
+
+
+  // Mock data for features not yet implemented by backend
+  const mockCampaign = {
     id,
     title: id === '1' ? 'Summer Skincare Launch' : 'Product Launch',
     status: id === '1' ? 'active' : 'pending',
@@ -61,62 +290,7 @@ export default function CampaignDetail() {
   }
 
   // Add mock content submissions data
-  const contentSubmissions = [
-    {
-      id: '1',
-      influencer: {
-        name: 'Murugi Munyi',
-        username: '@murugimunyi',
-        avatar: '/api/placeholder/60/60',
-        verified: true
-      },
-      content: {
-        type: 'image',
-        files: ['/api/placeholder/400/400'],
-        caption: 'Just tried the new @niveakenya summer collection! 🌞 My skin feels so hydrated and protected. Perfect for our Kenyan sun! #NIVEASummer #NaturalGlow #SkincareRoutine',
-        platforms: ['Instagram', 'TikTok'],
-        hashtags: ['#NIVEASummer', '#NaturalGlow', '#SkincareRoutine']
-      },
-      submittedAt: '2024-04-20T10:30:00Z',
-      status: 'pending'
-    },
-    {
-      id: '2',
-      influencer: {
-        name: 'Sarah Johnson',
-        username: '@sarahjohnson',
-        avatar: '/api/placeholder/60/60',
-        verified: false
-      },
-      content: {
-        type: 'video',
-        files: ['/api/placeholder/400/600'],
-        caption: 'Testing the amazing skincare routine! Love how my skin feels ✨ #NIVEASummer #SkincareRoutine',
-        platforms: ['TikTok', 'Instagram'],
-        hashtags: ['#NIVEASummer', '#SkincareRoutine']
-      },
-      submittedAt: '2024-04-19T14:20:00Z',
-      status: 'approved'
-    },
-    {
-      id: '3',
-      influencer: {
-        name: 'David Kim',
-        username: '@davidkim',
-        avatar: '/api/placeholder/60/60',
-        verified: false
-      },
-      content: {
-        type: 'image',
-        files: ['/api/placeholder/400/500'],
-        caption: 'Morning skincare routine with @niveakenya products! Perfect start to the day 🌅 #NIVEASummer #MorningRoutine',
-        platforms: ['Instagram'],
-        hashtags: ['#NIVEASummer', '#MorningRoutine']
-      },
-      submittedAt: '2024-04-18T09:15:00Z',
-      status: 'rejected'
-    }
-  ]
+ 
 
   // Add participating influencers data with their content
   const participatingInfluencers = [
@@ -214,8 +388,9 @@ export default function CampaignDetail() {
             <div>
               <h1 className="text-2xl font-semibold text-slate-900">{campaign.title}</h1>
               <div className="flex items-center space-x-4 mt-1">
-                <Badge variant={campaign.status === 'active' ? 'default' : 'secondary'}>
-                  {campaign.status}
+                <Badge className={`${getStatusColor(campaign.status)} flex items-center space-x-1`}>
+                  {getStatusIcon(campaign.status)}
+                  <span className="capitalize">{campaign.status.toLowerCase()}</span>
                 </Badge>
                 <span className="text-sm text-slate-600">Campaign #{campaign.id}</span>
               </div>
@@ -226,10 +401,19 @@ export default function CampaignDetail() {
               <Edit3 className="w-4 h-4 mr-2" />
               Edit
             </Button>
-            <Button variant="outline">
-              {campaign.status === 'active' ? (
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                const newStatus = campaign.status.toLowerCase() === 'active' ? 'PAUSED' : 'ACTIVE'
+                updateCampaignStatus(newStatus)
+              }}
+              disabled={refreshing}
+            >
+              {refreshing ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : campaign.status.toLowerCase() === 'active' ? (
                 <>
-                  <Play className="w-4 h-4 mr-2" />
+                  <Clock className="w-4 h-4 mr-2" />
                   Pause
                 </>
               ) : (
@@ -266,8 +450,30 @@ export default function CampaignDetail() {
         {/* Main Content */}
         <main className="flex-1 p-6">
           {activeTab === 'overview' && <OverviewTab campaign={campaign} />}
-          {activeTab === 'influencers' && <InfluencersTab campaign={campaign} />}
-          {activeTab === 'content' && <ContentTab campaign={campaign} />}
+          {activeTab === 'applications' && (
+            <ApplicationsTab 
+              applications={applications}
+              loading={applicationsLoading}
+              onStatusUpdate={updateApplicationStatus}
+              onRefresh={loadApplications}
+            />
+          )}
+          {activeTab === 'influencers' && (
+            <InfluencersTab 
+              campaignId={id}
+              participants={participants}
+              loading={participantsLoading}
+              onRefresh={loadParticipants}
+            />
+          )}
+          {activeTab === 'content' && (
+            <ContentTab 
+              contentSubmissions={contentSubmissions}
+              loading={contentLoading}
+              onStatusUpdate={updateContentStatus}
+              onRefresh={loadContentSubmissions}
+            />
+          )}
           {activeTab === 'metrics' && <MetricsTab campaign={campaign} />}
         </main>
       </div>
@@ -289,6 +495,170 @@ export default function CampaignDetail() {
   )
 }
 
+function ApplicationsTab({ applications, loading, onStatusUpdate, onRefresh }: { 
+  applications: any[]
+  loading: boolean
+  onStatusUpdate: (applicationId: string, status: 'ACCEPTED' | 'REJECTED', message?: string) => void
+  onRefresh: () => void
+}) {
+  const navigate = useNavigate()
+  const [selectedApplication, setSelectedApplication] = useState<any>(null)
+  const [showReviewModal, setShowReviewModal] = useState(false)
+
+  const getApplicationStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'pending': return 'bg-yellow-100 text-yellow-800'
+      case 'accepted': return 'bg-green-100 text-green-800'
+      case 'rejected': return 'bg-red-100 text-red-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getApplicationStatusIcon = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'pending': return <Clock className="w-4 h-4" />
+      case 'accepted': return <CheckCircle className="w-4 h-4" />
+      case 'rejected': return <XCircle className="w-4 h-4" />
+      default: return <Clock className="w-4 h-4" />
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-slate-600">Loading applications...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900">Campaign Applications</h2>
+          <p className="text-slate-600">{applications.length} total applications</p>
+        </div>
+        <Button variant="outline" onClick={onRefresh} disabled={loading}>
+          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
+      </div>
+
+      <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+        <CardContent className="p-6">
+          {applications.length === 0 ? (
+            <div className="text-center py-12">
+              <Users className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-slate-900 mb-2">No Applications Yet</h3>
+              <p className="text-slate-600">
+                Applications will appear here as influencers apply to your campaign.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {applications.map((application) => (
+                <div 
+                  key={application.id}
+                  className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
+                  onClick={() => navigate(`/influencer/${application.influencer.id}`)}
+                >
+                  <div className="flex items-center space-x-4">
+                    <img 
+                      src={application.influencer?.profile?.avatarUrl || '/api/placeholder/60/60'}
+                      alt={`${application.influencer?.profile?.firstName || ''} ${application.influencer?.profile?.lastName || ''}`.trim() || 'Influencer'}
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <h4 className="font-medium text-slate-900">
+                          {`${application.influencer?.profile?.firstName || ''} ${application.influencer?.profile?.lastName || ''}`.trim() || 'Unknown'}
+                        </h4>
+                        {application.influencer?.influencerProfile?.verified && (
+                          <Star className="w-4 h-4 text-yellow-500" />
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-600">
+                        Applied on {formatSafeDate(application.appliedAt)}
+                      </p>
+                      {application.applicationData?.message && (
+                        <p className="text-xs text-slate-500 mt-1 line-clamp-2 max-w-md">
+                          "{application.applicationData.message}"
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-3">
+                    <Badge className={`${getApplicationStatusColor(application.status)} flex items-center space-x-1`}>
+                      {getApplicationStatusIcon(application.status)}
+                      <span className="capitalize">{application.status.toLowerCase()}</span>
+                    </Badge>
+                    
+                    {application.status === 'PENDING' && (
+                      <div className="flex space-x-2">
+                        <Button 
+                          size="sm" 
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onStatusUpdate(application.id, 'ACCEPTED')
+                          }}
+                          className="bg-green-500 hover:bg-green-600"
+                        >
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          Accept
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="destructive"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onStatusUpdate(application.id, 'REJECTED')
+                          }}
+                        >
+                          <XCircle className="w-3 h-3 mr-1" />
+                          Reject
+                        </Button>
+                      </div>
+                    )}
+                    
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSelectedApplication(application)
+                        setShowReviewModal(true)
+                      }}
+                    >
+                      <Eye className="w-3 h-3 mr-1" />
+                      View Details
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Application Review Modal */}
+      {showReviewModal && selectedApplication && (
+        <ApplicationReviewModal
+          application={selectedApplication}
+          onClose={() => setShowReviewModal(false)}
+          onStatusUpdate={(applicationId, status, message) => {
+            onStatusUpdate(applicationId, status, message)
+            setShowReviewModal(false)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
 function OverviewTab({ campaign }: { campaign: any }) {
   return (
     <div className="space-y-6">
@@ -300,7 +670,7 @@ function OverviewTab({ campaign }: { campaign: any }) {
               <div>
                 <p className="text-sm text-slate-600">Influencers Joined</p>
                 <p className="text-2xl font-bold text-slate-900">
-                  {campaign.influencersJoined}/{campaign.targetInfluencers}
+                  {campaign._count?.participants || 0}/∞
                 </p>
               </div>
               <Users className="w-8 h-8 text-slate-400" />
@@ -312,8 +682,8 @@ function OverviewTab({ campaign }: { campaign: any }) {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-600">Total Reach</p>
-                <p className="text-2xl font-bold text-slate-900">{campaign.totalReach}</p>
+                <p className="text-sm text-slate-600">Applications</p>
+                <p className="text-2xl font-bold text-slate-900">{campaign._count?.applications || 0}</p>
               </div>
               <Eye className="w-8 h-8 text-slate-400" />
             </div>
@@ -324,8 +694,8 @@ function OverviewTab({ campaign }: { campaign: any }) {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-600">Engagement Rate</p>
-                <p className="text-2xl font-bold text-slate-900">{campaign.engagement}</p>
+                <p className="text-sm text-slate-600">Content Pieces</p>
+                <p className="text-2xl font-bold text-slate-900">{campaign._count?.contentSubmissions || 0}</p>
               </div>
               <TrendingUp className="w-8 h-8 text-slate-400" />
             </div>
@@ -336,8 +706,8 @@ function OverviewTab({ campaign }: { campaign: any }) {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-600">Budget Spent</p>
-                <p className="text-2xl font-bold text-slate-900">{campaign.budget}</p>
+                <p className="text-sm text-slate-600">Budget</p>
+                <p className="text-2xl font-bold text-slate-900">{formatCurrency(campaign.budget)}</p>
               </div>
               <DollarSign className="w-8 h-8 text-slate-400" />
             </div>
@@ -363,11 +733,11 @@ function OverviewTab({ campaign }: { campaign: any }) {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium text-slate-600">Start Date</label>
-                <p className="text-slate-900">{campaign.startDate}</p>
+                <p className="text-slate-900">{formatSafeDate(campaign.startDate)}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-600">End Date</label>
-                <p className="text-slate-900">{campaign.endDate}</p>
+                <p className="text-slate-900">{formatSafeDate(campaign.endDate)}</p>
               </div>
             </div>
           </CardContent>
@@ -380,16 +750,16 @@ function OverviewTab({ campaign }: { campaign: any }) {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-600">Content Submitted</span>
-              <span className="font-semibold">{campaign.contentSubmitted}</span>
+              <span className="font-semibold">{campaign._count?.contentSubmissions || 0}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-600">Content Approved</span>
-              <span className="font-semibold text-green-600">{campaign.contentApproved}</span>
+              <span className="text-sm text-slate-600">Participants</span>
+              <span className="font-semibold text-green-600">{campaign._count?.participants || 0}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-600">Pending Review</span>
-              <span className="font-semibold text-yellow-600">
-                {campaign.contentSubmitted - campaign.contentApproved}
+              <span className="text-sm text-slate-600">Applications</span>
+              <span className="font-semibold text-blue-600">
+                {campaign._count?.applications || 0}
               </span>
             </div>
           </CardContent>
@@ -399,104 +769,70 @@ function OverviewTab({ campaign }: { campaign: any }) {
   )
 }
 
-function InfluencersTab({ campaign }: { campaign: any }) {
+function InfluencersTab({ campaignId, participants, loading, onRefresh }: { 
+  campaignId: string | undefined
+  participants: any[]
+  loading: boolean
+  onRefresh: () => void
+}) {
   const navigate = useNavigate()
 
-  const influencers = [
-    { id: 1, name: 'Murugi Munyi', followers: '532K', engagement: '8.4%', status: 'active', joined: '2024-04-16' },
-    { id: 2, name: 'Sarah Johnson', followers: '245K', engagement: '12.1%', status: 'active', joined: '2024-04-17' },
-    { id: 3, name: 'David Kim', followers: '128K', engagement: '15.2%', status: 'pending', joined: '2024-04-18' },
-  ]
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-slate-600">Loading participants...</p>
+        </div>
+      </div>
+    )
+  }
 
-  // Get participatingInfluencers from the parent component scope
-  const participatingInfluencers = [
-    {
-      id: '1',
-      name: 'Murugi Munyi',
-      username: '@murugimunyi',
-      avatar: '/api/placeholder/60/60',
-      followers: '532K',
-      engagement: '8.4%',
-      verified: true,
-      joinedDate: '2024-04-16',
-      status: 'active',
-      contentSubmissions: [
-        {
-          id: 'c1',
-          type: 'image',
-          files: ['/api/placeholder/400/400'],
-          caption: 'Just tried the new @niveakenya summer collection! 🌞 My skin feels so hydrated and protected. Perfect for our Kenyan sun! #NIVEASummer #NaturalGlow #SkincareRoutine',
-          platforms: ['Instagram', 'TikTok'],
-          hashtags: ['#NIVEASummer', '#NaturalGlow', '#SkincareRoutine'],
-          submittedAt: '2024-04-20T10:30:00Z',
-          status: 'pending'
-        }
-      ]
-    },
-    {
-      id: '2',
-      name: 'Sarah Johnson',
-      username: '@sarahjohnson',
-      avatar: '/api/placeholder/60/60',
-      followers: '245K',
-      engagement: '12.1%',
-      verified: false,
-      joinedDate: '2024-04-17',
-      status: 'active',
-      contentSubmissions: [
-        {
-          id: 'c3',
-          type: 'image',
-          files: ['/api/placeholder/400/500'],
-          caption: 'Testing the amazing skincare routine! Love how my skin feels ✨ #NIVEASummer #SkincareRoutine',
-          platforms: ['Instagram'],
-          hashtags: ['#NIVEASummer', '#SkincareRoutine'],
-          submittedAt: '2024-04-19T14:20:00Z',
-          status: 'approved'
-        }
-      ]
-    },
-    {
-      id: '3',
-      name: 'David Kim',
-      username: '@davidkim',
-      avatar: '/api/placeholder/60/60',
-      followers: '128K',
-      engagement: '15.2%',
-      verified: false,
-      joinedDate: '2024-04-18',
-      status: 'pending',
-      contentSubmissions: [
-        {
-          id: 'c4',
-          type: 'image',
-          files: ['/api/placeholder/400/500'],
-          caption: 'Morning skincare routine with @niveakenya products! Perfect start to the day 🌅 #NIVEASummer #MorningRoutine',
-          platforms: ['Instagram'],
-          hashtags: ['#NIVEASummer', '#MorningRoutine'],
-          submittedAt: '2024-04-18T09:15:00Z',
-          status: 'rejected'
-        }
-      ]
-    }
-  ]
+  const participatingInfluencers = participants.map(participant => ({
+    id: participant.influencer?.id || participant.id,
+    name: `${participant.influencer?.profile?.firstName || ''} ${participant.influencer?.profile?.lastName || ''}`.trim() || 'Unknown',
+    username: participant.influencer?.influencerProfile?.bio || `@${participant.influencer?.profile?.firstName?.toLowerCase() || 'user'}`,
+    avatar: participant.influencer?.profile?.avatarUrl || '/api/placeholder/60/60',
+    followers: participant.influencer?.socialAccounts?.[0]?.followersCount ? 
+      `${Math.round(participant.influencer.socialAccounts[0].followersCount / 1000)}K` : 'N/A',
+    engagement: participant.influencer?.socialAccounts?.[0]?.engagementRate ? 
+      `${participant.influencer.socialAccounts[0].engagementRate}%` : 'N/A',
+    verified: participant.influencer?.influencerProfile?.verified || false,
+    joinedDate: participant.joinedAt || participant.createdAt,
+    status: participant.status?.toLowerCase() || 'active',
+    contentSubmissions: [] // This would need to come from content API
+  }))
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900">Campaign Participants</h2>
+          <p className="text-slate-600">{participants.length} active participants</p>
+        </div>
+        <Button variant="outline" onClick={onRefresh} disabled={loading}>
+          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
+      </div>
+
       <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle>Participating Influencers</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {participatingInfluencers.map((influencer) => (
+        <CardContent className="p-6">
+          {participants.length === 0 ? (
+            <div className="text-center py-12">
+              <Users className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-slate-900 mb-2">No Participants Yet</h3>
+              <p className="text-slate-600">
+                Participants will appear here when applications are accepted.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {participatingInfluencers.map((influencer) => (
               <div 
                 key={influencer.id}
                 className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
-                onClick={() => {
-                  // Replace modal with navigation to new page
-                  navigate(`/campaigns/${campaign.id}/influencer/${influencer.id}`)
-                }}
+                onClick={() => navigate(`/campaigns/${campaignId}/influencer/${influencer.id}`)}
               >
                 <div className="flex items-center space-x-4">
                   <img 
@@ -513,7 +849,7 @@ function InfluencersTab({ campaign }: { campaign: any }) {
                       {influencer.followers} followers • {influencer.engagement} engagement
                     </p>
                     <p className="text-xs text-slate-500">
-                      Joined {new Date(influencer.joinedDate).toLocaleDateString()}
+                      Joined {formatSafeDate(influencer.joinedDate)}
                     </p>
                   </div>
                 </div>
@@ -534,96 +870,60 @@ function InfluencersTab({ campaign }: { campaign: any }) {
                 </div>
               </div>
             ))}
-          </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
   )
 }
 
-function ContentTab({ campaign }: { campaign: any }) {
+function ContentTab({ contentSubmissions, loading, onStatusUpdate, onRefresh }: { 
+  contentSubmissions: any[]
+  loading: boolean
+  onStatusUpdate: (contentId: string, status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED' | 'PAID', feedback?: string) => void
+  onRefresh: () => void
+}) {
   const [selectedContent, setSelectedContent] = useState<any>(null)
   const [showContentModal, setShowContentModal] = useState(false)
 
-  const submissions = [
-    { 
-      id: 1, 
-      influencer: 'Murugi Munyi', 
-      platform: 'Instagram', 
-      type: 'Post', 
-      status: 'pending',
-      submitted: '2024-04-20',
-      preview: '/api/placeholder/200/200'
-    },
-    { 
-      id: 2, 
-      influencer: 'Sarah Johnson', 
-      platform: 'TikTok', 
-      type: 'Video', 
-      status: 'approved',
-      submitted: '2024-04-19',
-      preview: '/api/placeholder/200/200'
-    },
-    { 
-      id: 3, 
-      influencer: 'David Kim', 
-      platform: 'Instagram', 
-      type: 'Story', 
-      status: 'rejected',
-      submitted: '2024-04-18',
-      preview: '/api/placeholder/200/200'
-    },
-  ]
-
-  // Get contentSubmissions from parent component scope
-  const contentSubmissions = [
-    {
-      id: '1',
-      influencer: {
-        name: 'Murugi Munyi',
-        username: '@murugimunyi',
-        avatar: '/api/placeholder/60/60',
-        verified: true
-      },
-      content: {
-        type: 'image',
-        files: ['/api/placeholder/400/400'],
-        caption: 'Just tried the new @niveakenya summer collection! 🌞 My skin feels so hydrated and protected. Perfect for our Kenyan sun! #NIVEASummer #NaturalGlow #SkincareRoutine',
-        platforms: ['Instagram', 'TikTok'],
-        hashtags: ['#NIVEASummer', '#NaturalGlow', '#SkincareRoutine']
-      },
-      submittedAt: '2024-04-20T10:30:00Z',
-      status: 'pending'
-    },
-    {
-      id: '2',
-      influencer: {
-        name: 'Sarah Johnson',
-        username: '@sarahjohnson',
-        avatar: '/api/placeholder/60/60',
-        verified: false
-      },
-      content: {
-        type: 'video',
-        files: ['/api/placeholder/400/600'],
-        caption: 'Testing the amazing skincare routine! Love how my skin feels ✨ #NIVEASummer #SkincareRoutine',
-        platforms: ['TikTok', 'Instagram'],
-        hashtags: ['#NIVEASummer', '#SkincareRoutine']
-      },
-      submittedAt: '2024-04-19T14:20:00Z',
-      status: 'approved'
-    }
-  ]
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-slate-600">Loading content submissions...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900">Content Submissions</h2>
+          <p className="text-slate-600">{contentSubmissions.length} total submissions</p>
+        </div>
+        <Button variant="outline" onClick={onRefresh} disabled={loading}>
+          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
+      </div>
+
       <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle>Content Submissions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {contentSubmissions.map((submission) => (
+        <CardContent className="p-6">
+          {contentSubmissions.length === 0 ? (
+            <div className="text-center py-12">
+              <Camera className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-slate-900 mb-2">No Content Submissions</h3>
+              <p className="text-slate-600">
+                Content submissions will appear here when participants upload content.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {contentSubmissions.map((submission) => (
               <div 
                 key={submission.id}
                 className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
@@ -634,49 +934,83 @@ function ContentTab({ campaign }: { campaign: any }) {
               >
                 <div className="flex items-center space-x-4">
                   <img 
-                    src={submission.influencer.avatar} 
-                    alt={submission.influencer.name}
+                    src={submission.influencer?.profile?.avatarUrl || '/api/placeholder/60/60'}
+                    alt={`${submission.influencer?.profile?.firstName || ''} ${submission.influencer?.profile?.lastName || ''}`.trim() || 'Influencer'}
                     className="w-12 h-12 rounded-full object-cover"
                   />
                   <div>
                     <div className="flex items-center space-x-2">
-                      <h4 className="font-medium text-slate-900">{submission.influencer.name}</h4>
-                      {submission.influencer.verified && <Star className="w-4 h-4 text-yellow-500" />}
+                      <h4 className="font-medium text-slate-900">
+                        {`${submission.influencer?.profile?.firstName || ''} ${submission.influencer?.profile?.lastName || ''}`.trim() || 'Unknown'}
+                      </h4>
+                      {submission.influencer?.influencerProfile?.verified && <Star className="w-4 h-4 text-yellow-500" />}
                     </div>
                     <p className="text-sm text-slate-600">
-                      {submission.content.platforms.join(' • ')} • {submission.content.type}
+                      {submission.platforms?.join(' • ') || 'No platforms'} • {submission.contentType || 'Content'}
                     </p>
                     <p className="text-xs text-slate-500">
-                      Submitted {new Date(submission.submittedAt).toLocaleDateString()}
+                      Submitted {formatSafeDate(submission.submittedAt)}
                     </p>
                   </div>
                 </div>
                 
                 <div className="flex items-center space-x-3">
                   <Badge 
-                    variant={
-                      submission.status === 'approved' ? 'default' : 
-                      submission.status === 'pending' ? 'secondary' : 
-                      'destructive'
-                    }
                     className={
-                      submission.status === 'approved' ? 'bg-green-100 text-green-800' :
-                      submission.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
+                      submission.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                      submission.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                      submission.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                      submission.status === 'COMPLETED' ? 'bg-blue-100 text-blue-800' :
+                      'bg-gray-100 text-gray-800'
                     }
                   >
                     {submission.status}
                   </Badge>
                   
-                  {/* Remove inline buttons - content will be opened in modal */}
-                  <Button size="sm" variant="outline">
+                  {submission.status === 'PENDING' && (
+                    <div className="flex space-x-2">
+                      <Button 
+                        size="sm" 
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onStatusUpdate(submission.id, 'APPROVED')
+                        }}
+                        className="bg-green-500 hover:bg-green-600"
+                      >
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Approve
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="destructive"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onStatusUpdate(submission.id, 'REJECTED')
+                        }}
+                      >
+                        <XCircle className="w-3 h-3 mr-1" />
+                        Reject
+                      </Button>
+                    </div>
+                  )}
+                  
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setSelectedContent(submission)
+                      setShowContentModal(true)
+                    }}
+                  >
                     <Eye className="w-3 h-3 mr-1" />
                     View Details
                   </Button>
                 </div>
               </div>
             ))}
-          </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -685,9 +1019,8 @@ function ContentTab({ campaign }: { campaign: any }) {
         <ContentDetailModal
           content={selectedContent}
           onClose={() => setShowContentModal(false)}
-          onStatusChange={(contentId, newStatus) => {
-            // Handle status change
-            console.log('Status changed:', contentId, newStatus)
+          onStatusChange={(contentId, newStatus, feedback) => {
+            onStatusUpdate(contentId, newStatus, feedback)
             setShowContentModal(false)
           }}
         />
@@ -760,177 +1093,433 @@ function MetricsTab({ campaign }: { campaign: any }) {
 function ContentDetailModal({ content, onClose, onStatusChange }: {
   content: any
   onClose: () => void
-  onStatusChange: (id: string, status: string) => void
+  onStatusChange: (id: string, status: string, feedback?: string) => void
 }) {
   const [feedback, setFeedback] = useState('')
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const handleStatusChange = async (status: string) => {
+    setIsSubmitting(true)
+    try {
+      await onStatusChange(content.id, status, feedback)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-6xl w-full max-h-[95vh] overflow-y-auto">
         <div className="p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
               <img 
-                src={content.influencer.avatar} 
-                alt={content.influencer.name}
+                src={content.influencer?.profile?.avatarUrl || content.influencer?.avatar || '/api/placeholder/60/60'} 
+                alt={content.influencer?.name || 'Influencer'}
                 className="w-12 h-12 rounded-full object-cover"
               />
               <div>
                 <div className="flex items-center space-x-2">
-                  <h2 className="text-xl font-semibold">{content.influencer.name}</h2>
-                  {content.influencer.verified && <Star className="w-5 h-5 text-yellow-500" />}
+                  <h2 className="text-xl font-semibold">
+                    {`${content.influencer?.profile?.firstName || ''} ${content.influencer?.profile?.lastName || ''}`.trim() || 
+                     content.influencer?.name || 
+                     'Influencer'}
+                  </h2>
+                  {(content.influencer?.verified || content.influencer?.influencerProfile?.verified) && (
+                    <Star className="w-5 h-5 text-yellow-500" />
+                  )}
+                  <Badge className={`
+                    ${content.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                      content.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                      content.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                      content.status === 'COMPLETED' ? 'bg-blue-100 text-blue-800' :
+                      'bg-gray-100 text-gray-800'} 
+                    flex items-center space-x-1
+                  `}>
+                    <span className="capitalize">{content.status?.toLowerCase() || 'pending'}</span>
+                  </Badge>
                 </div>
-                <p className="text-slate-600">{content.influencer.username}</p>
+                <p className="text-slate-600">
+                  {content.influencer?.username || `@${content.influencer?.profile?.firstName?.toLowerCase() || 'user'}`}
+                </p>
               </div>
             </div>
-            <Button variant="ghost" onClick={onClose}>
+            <Button variant="ghost" onClick={onClose} disabled={isSubmitting}>
               <XCircle className="w-5 h-5" />
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
             {/* Content Display */}
-            <div>
-              <h3 className="font-semibold mb-3">Content Preview</h3>
-              
-              <div className="mb-4">
-                {content.content.type === 'image' ? (
-                  <img 
-                    src={content.content.files[0]} 
-                    alt="Content" 
-                    className="w-full rounded-lg object-cover max-h-96"
-                  />
-                ) : (
-                  <div className="aspect-video rounded-lg bg-slate-200 flex items-center justify-center">
-                    <div className="text-center">
-                      <Play className="w-16 h-16 text-slate-500 mx-auto mb-2" />
-                      <p className="text-slate-600">Video Content</p>
+            <div className="space-y-6">
+              {/* Media Files */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Media Files</h3>
+                  {content.files && content.files.length > 0 && (
+                    <span className="text-sm text-slate-600">{content.files.length} file(s)</span>
+                  )}
+                </div>
+                
+                {content.files && content.files.length > 0 ? (
+                  <div className="space-y-4">
+                    {/* Main media display */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {content.files.map((file: any, index: number) => (
+                        <div key={file.id || index} className="group relative">
+                          {file.fileType?.startsWith('image/') ? (
+                            <div className="relative aspect-square rounded-lg overflow-hidden bg-slate-100 cursor-pointer hover:opacity-95 transition-opacity">
+                              <img 
+                                src={file.thumbnailUrl || file.fileUrl} 
+                                alt={`Content ${index + 1}`}
+                                className="w-full h-full object-cover" 
+                                onClick={() => setSelectedImageIndex(index)}
+                              />
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                                <Eye className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </div>
+                            </div>
+                          ) : file.fileType?.startsWith('video/') ? (
+                            <div className="aspect-video rounded-lg overflow-hidden bg-slate-200 relative">
+                              <video 
+                                src={file.fileUrl}
+                                className="w-full h-full object-cover"
+                                controls
+                                poster={file.thumbnailUrl}
+                              />
+                            </div>
+                          ) : (
+                            <div className="aspect-square rounded-lg bg-slate-100 flex items-center justify-center border-2 border-dashed border-slate-300">
+                              <div className="text-center">
+                                <Download className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                                <p className="text-sm text-slate-600">
+                                  {file.fileType?.split('/')[1]?.toUpperCase() || 'File'}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  {file.fileSize ? contentService.formatFileSize(file.fileSize) : 'Unknown size'}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* File info overlay */}
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3 rounded-b-lg">
+                            <div className="flex items-center justify-between text-white">
+                              <span className="text-xs font-medium">
+                                {file.fileType?.split('/')[1]?.toUpperCase() || 'FILE'}
+                              </span>
+                              <Button variant="ghost" size="sm" asChild className="h-6 px-2 text-white hover:bg-white/20">
+                                <a href={file.fileUrl} target="_blank" rel="noopener noreferrer">
+                                  <Download className="w-3 h-3" />
+                                </a>
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
+
+                    {/* File list */}
+                    <div className="bg-slate-50 rounded-lg p-4">
+                      <h4 className="text-sm font-medium text-slate-700 mb-3">All Files</h4>
+                      <div className="space-y-2">
+                        {content.files.map((file: any, index: number) => (
+                          <div key={file.id || index} className="flex items-center justify-between p-2 bg-white rounded border">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 rounded bg-slate-200 flex items-center justify-center">
+                                {file.fileType?.startsWith('image/') ? (
+                                  <Camera className="w-4 h-4 text-slate-500" />
+                                ) : file.fileType?.startsWith('video/') ? (
+                                  <Play className="w-4 h-4 text-slate-500" />
+                                ) : (
+                                  <Download className="w-4 h-4 text-slate-500" />
+                                )}
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-slate-700">
+                                  {file.fileType || 'Unknown type'} • {file.fileSize ? contentService.formatFileSize(file.fileSize) : 'Unknown size'}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  Uploaded {file.createdAt ? formatSafeDate(file.createdAt) : 'Unknown date'}
+                                </p>
+                              </div>
+                            </div>
+                            <Button variant="outline" size="sm" asChild>
+                              <a href={file.fileUrl} target="_blank" rel="noopener noreferrer">
+                                <Download className="w-3 h-3 mr-1" />
+                                Download
+                              </a>
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-slate-50 p-8 rounded-lg text-center border-2 border-dashed border-slate-300">
+                    <Camera className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                    <p className="text-slate-600 font-medium">No media files uploaded</p>
+                    <p className="text-slate-500 text-sm">The influencer hasn't uploaded any content files yet.</p>
                   </div>
                 )}
               </div>
 
-              <h3 className="font-semibold mb-2">Caption</h3>
-              <p className="text-slate-700 bg-slate-50 p-3 rounded-lg mb-4">
-                {content.content.caption}
-              </p>
-
-              <div className="grid grid-cols-2 gap-4">
+              {/* Content Details */}
+              <div className="space-y-4">
                 <div>
-                  <h4 className="font-medium mb-2">Platforms</h4>
-                  <div className="flex flex-wrap gap-1">
-                    {content.content.platforms.map((platform: string) => (
-                      <Badge key={platform} variant="secondary">
-                        {platform}
-                      </Badge>
-                    ))}
+                  <h3 className="text-lg font-semibold mb-3">Content Information</h3>
+                </div>
+
+                {/* Title */}
+                {content.title && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-1">Title</label>
+                    <div className="bg-slate-50 p-3 rounded-lg border">
+                      <p className="text-slate-800">{content.title}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Description */}
+                {content.description && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-1">Description</label>
+                    <div className="bg-slate-50 p-3 rounded-lg border">
+                      <p className="text-slate-800">{content.description}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Caption */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">Caption</label>
+                  <div className="bg-slate-50 p-3 rounded-lg border">
+                    <p className="text-slate-800 whitespace-pre-wrap">
+                      {content.caption || 'No caption provided'}
+                    </p>
                   </div>
                 </div>
-                <div>
-                  <h4 className="font-medium mb-2">Hashtags</h4>
-                  <div className="flex flex-wrap gap-1">
-                    {content.content.hashtags.map((hashtag: string) => (
-                      <Badge key={hashtag} variant="outline" className="text-xs">
-                        {hashtag}
-                      </Badge>
-                    ))}
+
+                {/* Content Type & Platforms */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-2">Content Type</label>
+                    <Badge variant="secondary" className="text-sm">
+                      {content.contentType || 'Not specified'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-2">Platforms</label>
+                    <div className="flex flex-wrap gap-1">
+                      {content.platforms && content.platforms.length > 0 ? (
+                        content.platforms.map((platform: string) => (
+                          <Badge key={platform} variant="outline" className="text-sm">
+                            {platform}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-slate-500 text-sm">No platforms specified</span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-800">
-                  <strong>Submitted:</strong> {new Date(content.submittedAt).toLocaleDateString()} at {new Date(content.submittedAt).toLocaleTimeString()}
-                </p>
+                {/* Hashtags */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-2">Hashtags</label>
+                  <div className="flex flex-wrap gap-1">
+                    {content.hashtags && content.hashtags.length > 0 ? (
+                      content.hashtags.map((hashtag: string) => (
+                        <Badge key={hashtag} variant="outline" className="text-xs">
+                          {hashtag.startsWith('#') ? hashtag : `#${hashtag}`}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-slate-500 text-sm">No hashtags provided</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Amount */}
+                {content.amount && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-1">Proposed Amount</label>
+                    <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                      <p className="text-lg font-bold text-green-700">${content.amount.toLocaleString()}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Submission Timeline */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-2">Timeline</label>
+                  <div className="bg-slate-50 p-3 rounded-lg border space-y-2">
+                    {content.submittedAt && (
+                      <div className="flex items-center space-x-2 text-sm">
+                        <Calendar className="w-4 h-4 text-slate-500" />
+                        <span>Submitted: {formatSafeDate(content.submittedAt)}</span>
+                      </div>
+                    )}
+                    {content.approvedAt && (
+                      <div className="flex items-center space-x-2 text-sm text-green-600">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Approved: {formatSafeDate(content.approvedAt)}</span>
+                      </div>
+                    )}
+                    {content.completedAt && (
+                      <div className="flex items-center space-x-2 text-sm text-blue-600">
+                        <Edit3 className="w-4 h-4" />
+                        <span>Completed: {formatSafeDate(content.completedAt)}</span>
+                      </div>
+                    )}
+                    {content.paidAt && (
+                      <div className="flex items-center space-x-2 text-sm text-purple-600">
+                        <Star className="w-4 h-4" />
+                        <span>Paid: {formatSafeDate(content.paidAt)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Previous Feedback */}
+                {content.feedback && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-1">Previous Feedback</label>
+                    <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                      <p className="text-yellow-800">{content.feedback}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Review Actions */}
-            <div>
-              <h3 className="font-semibold mb-3">Review Actions</h3>
-              
-              <div className="mb-4">
-                <div className={`p-3 rounded-lg ${
-                  content.status === 'approved' ? 'bg-green-50 border border-green-200' :
-                  content.status === 'pending' ? 'bg-yellow-50 border border-yellow-200' :
-                  'bg-red-50 border border-red-200'
-                }`}>
-                  <div className="flex items-center space-x-2">
-                    {content.status === 'approved' && <CheckCircle className="w-5 h-5 text-green-600" />}
-                    {content.status === 'pending' && <Clock className="w-5 h-5 text-yellow-600" />}
-                    {content.status === 'rejected' && <XCircle className="w-5 h-5 text-red-600" />}
-                    <span className={`font-semibold capitalize ${
-                      content.status === 'approved' ? 'text-green-800' :
-                      content.status === 'pending' ? 'text-yellow-800' :
-                      'text-red-800'
-                    }`}>
-                      {content.status}
-                    </span>
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Review Actions</h3>
+                
+                {/* Current Status */}
+                <div className="bg-slate-50 p-4 rounded-lg mb-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-slate-600 mb-1">Current Status</p>
+                      <Badge className={`
+                        ${content.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                          content.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                          content.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                          content.status === 'COMPLETED' ? 'bg-blue-100 text-blue-800' :
+                          'bg-gray-100 text-gray-800'} 
+                        flex items-center space-x-1 w-fit
+                      `}>
+                        <span className="capitalize">{content.status?.toLowerCase() || 'pending'}</span>
+                      </Badge>
+                    </div>
                   </div>
                 </div>
-              </div>
-              
-              {content.status === 'pending' && (
+
+                {/* Feedback Section */}
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Feedback (Optional)
+                      Feedback for Influencer
                     </label>
                     <textarea
-                      placeholder="Provide feedback for the influencer..."
+                      placeholder="Provide detailed feedback about the content submission..."
                       value={feedback}
                       onChange={(e) => setFeedback(e.target.value)}
-                      className="w-full h-24 p-3 border border-slate-200 rounded-md resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full h-32 p-3 border border-slate-300 rounded-lg resize-none focus:ring-2 focus:ring-primary focus:border-primary"
+                      disabled={isSubmitting}
                     />
+                    <p className="text-xs text-slate-500 mt-1">
+                      This feedback will be sent to the influencer along with your decision.
+                    </p>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-3">
-                    <Button 
-                      onClick={() => onStatusChange(content.id, 'approved')}
-                      className="bg-green-500 hover:bg-green-600"
-                    >
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Approve Content
-                    </Button>
-                    
-                    <Button 
-                      onClick={() => onStatusChange(content.id, 'revision_requested')}
-                      variant="outline"
-                      className="border-blue-200 text-blue-600 hover:bg-blue-50"
-                    >
-                      <Edit3 className="w-4 h-4 mr-2" />
-                      Request Revisions
-                    </Button>
-                    
-                    <Button 
-                      onClick={() => onStatusChange(content.id, 'rejected')}
-                      variant="destructive"
-                    >
-                      <XCircle className="w-4 h-4 mr-2" />
-                      Reject Content
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {content.status !== 'pending' && (
-                <div className="text-center py-8">
-                  <p className="text-slate-600 mb-4">
-                    This content has been {content.status}.
-                  </p>
-                  {content.status === 'approved' && (
-                    <Button variant="outline" className="w-full">
-                      <Download className="w-4 h-4 mr-2" />
-                      Download Content
-                    </Button>
+                  {/* Action Buttons */}
+                  {(!content.status || content.status === 'PENDING') ? (
+                    <div className="grid grid-cols-1 gap-3">
+                      <Button 
+                        onClick={() => handleStatusChange('APPROVED')}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                        disabled={isSubmitting}
+                        size="lg"
+                      >
+                        {isSubmitting ? (
+                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        ) : (
+                          <CheckCircle className="w-5 h-5 mr-2" />
+                        )}
+                        Approve Content
+                      </Button>
+                      
+                      <Button 
+                        onClick={() => handleStatusChange('REJECTED')}
+                        variant="destructive"
+                        disabled={isSubmitting}
+                        size="lg"
+                      >
+                        {isSubmitting ? (
+                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        ) : (
+                          <XCircle className="w-5 h-5 mr-2" />
+                        )}
+                        Reject Content
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <p className="text-slate-600 mb-3">
+                        This content has been <span className="font-medium">{content.status?.toLowerCase()}</span>.
+                      </p>
+                      {content.status === 'APPROVED' && (
+                        <p className="text-sm text-green-600 mb-4">
+                          Content is ready for publication by the influencer.
+                        </p>
+                      )}
+                      {content.status === 'REJECTED' && (
+                        <p className="text-sm text-red-600 mb-4">
+                          Content was rejected and needs to be resubmitted.
+                        </p>
+                      )}
+                      {content.status === 'APPROVED' && content.files && content.files.length > 0 && (
+                        <Button variant="outline" className="w-full">
+                          <Download className="w-4 h-4 mr-2" />
+                          Download All Files
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Image Preview Modal */}
+      {selectedImageIndex !== null && content.files && content.files[selectedImageIndex] && (
+        <div 
+          className="fixed inset-0 bg-black/90 flex items-center justify-center z-[60] p-4"
+          onClick={() => setSelectedImageIndex(null)}
+        >
+          <div className="relative max-w-4xl max-h-full">
+            <img 
+              src={content.files[selectedImageIndex].fileUrl}
+              alt={`Content preview ${selectedImageIndex + 1}`}
+              className="max-w-full max-h-full object-contain"
+            />
+            <Button 
+              variant="ghost" 
+              className="absolute top-4 right-4 bg-black/50 text-white hover:bg-black/70"
+              onClick={() => setSelectedImageIndex(null)}
+            >
+              <XCircle className="w-6 h-6" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

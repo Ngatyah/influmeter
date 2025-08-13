@@ -9,7 +9,8 @@ import './App.css'
 import BrowseCampaigns from './screens/campaigns/BrowseCampaigns';
 import CampaignDetailInfluencer from './screens/campaigns/CampaignDetailInfluencer';
 import CampaignApplication from './screens/campaigns/CampaignApplication';
-import { SubmitContent, ContentApprovals } from './screens/content'
+import MyApplications from './screens/campaigns/MyApplications';
+import { SubmitContent, ContentApprovals, SubmitLiveUrls, ContentManagement } from './screens/content'
 import { InfluencerEarnings } from './screens/earnings'
 import { Settings } from './screens/settings'
 import { BrandAnalytics, InfluencerAnalytics } from './screens/analytics'
@@ -17,6 +18,7 @@ import { InfluencerProfile } from './screens/profile'
 import { InfluencerOnboarding, BrandOnboarding } from './screens/onboarding'
 import InfluencerContentView from './screens/campaigns/InfluencerContentView'
 import { ThemeProvider } from './components/ui/theme-provider';
+import { ToastProvider } from './components/ui/toast-provider';
 import { authService } from './services/auth.service'
 
 function App() {
@@ -39,9 +41,10 @@ function App() {
 
   return (
     <ThemeProvider defaultTheme="light" storageKey="influmeter-ui-theme">
-      <Router>
-        <div className="min-h-screen bg-background text-foreground">
-          <Routes>
+      <ToastProvider maxToasts={5}>
+        <Router>
+          <div className="min-h-screen bg-background text-foreground">
+            <Routes>
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<LoginScreen />} />
             <Route path="/signup" element={<SignupScreen />} />
@@ -98,6 +101,14 @@ function App() {
               } 
             />
             <Route 
+              path="/campaigns/my-applications" 
+              element={
+                <ProtectedRoute role="influencer">
+                  <MyApplications />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
               path="/campaigns/:id/details" 
               element={
                 <ProtectedRoute role="influencer">
@@ -129,7 +140,30 @@ function App() {
                 </ProtectedRoute>
               } 
             />
-            <Route path="/campaigns/:campaignId/influencer/:influencerId" element={<InfluencerContentView />} />
+            <Route 
+              path="/campaigns/:campaignId/submit-urls/:contentId" 
+              element={
+                <ProtectedRoute role="influencer">
+                  <SubmitLiveUrls />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/content/manage" 
+              element={
+                <ProtectedRoute role="influencer">
+                  <ContentManagement />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/campaigns/:campaignId/influencer/:influencerId" 
+              element={
+                <ProtectedRoute role="brand">
+                  <InfluencerContentView />
+                </ProtectedRoute>
+              } 
+            />
             
             {/* Discover Routes */}
             <Route 
@@ -205,9 +239,10 @@ function App() {
             
             {/* Fallback route */}
             <Route path="*" element={<Navigate to="/login" replace />} />
-          </Routes>
-        </div>
-      </Router>
+            </Routes>
+          </div>
+        </Router>
+      </ToastProvider>
     </ThemeProvider>
   )
 }

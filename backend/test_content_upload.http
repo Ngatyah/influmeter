@@ -1,0 +1,146 @@
+### Content Management & File Upload Testing
+### Test the complete content management workflow including file uploads
+
+### Variables
+@baseUrl = http://localhost:3000/api
+@brandToken = your_brand_jwt_token_here
+@influencerToken = your_influencer_jwt_token_here
+@contentId = your_content_id_here
+
+### 1. Get upload limits and supported formats
+GET {{baseUrl}}/content/upload/limits
+Authorization: Bearer {{influencerToken}}
+
+### 2. Create content submission (Influencer)
+POST {{baseUrl}}/content
+Authorization: Bearer {{influencerToken}}
+Content-Type: application/json
+
+{
+  "campaignId": "your_campaign_id_here",
+  "title": "Summer Fashion Post",
+  "description": "Showcasing the new summer collection",
+  "caption": "Loving this summer vibe! ☀️ #SummerFashion #OOTD",
+  "hashtags": ["#SummerFashion", "#OOTD", "#Style"],
+  "platforms": ["Instagram", "TikTok"],
+  "contentType": "IMAGE",
+  "amount": 250
+}
+
+### 3. Upload files for content submission (Influencer)
+### Note: This requires a multipart/form-data request with actual files
+### Use Postman, Insomnia, or a frontend form for file uploads
+POST {{baseUrl}}/content/upload/{{contentId}}
+Authorization: Bearer {{influencerToken}}
+Content-Type: multipart/form-data
+
+# In Postman/Insomnia, add files in the "form-data" section:
+# Key: files (set as File type)
+# Value: Select your image/video files
+
+### 4. Get influencer's content submissions
+GET {{baseUrl}}/content/my-submissions
+Authorization: Bearer {{influencerToken}}
+
+### 5. Get influencer's content submissions with filters
+GET {{baseUrl}}/content/my-submissions?status=PENDING&page=1&limit=10
+Authorization: Bearer {{influencerToken}}
+
+### 6. Get brand's content submissions
+GET {{baseUrl}}/content/brand-content
+Authorization: Bearer {{brandToken}}
+
+### 7. Get brand's content submissions with filters
+GET {{baseUrl}}/content/brand-content?status=PENDING&contentType=IMAGE
+Authorization: Bearer {{brandToken}}
+
+### 8. Get single content submission
+GET {{baseUrl}}/content/{{contentId}}
+Authorization: Bearer {{brandToken}}
+
+### 9. Get files for content submission
+GET {{baseUrl}}/content/{{contentId}}/files
+Authorization: Bearer {{brandToken}}
+
+### 10. Update content submission (Influencer)
+PUT {{baseUrl}}/content/{{contentId}}
+Authorization: Bearer {{influencerToken}}
+Content-Type: application/json
+
+{
+  "title": "Updated Summer Fashion Post",
+  "description": "Updated description with more details",
+  "caption": "Updated caption with new hashtags! ☀️ #SummerVibes #Updated",
+  "hashtags": ["#SummerVibes", "#Updated", "#Fashion"],
+  "amount": 300
+}
+
+### 11. Approve content (Brand) - Convenience method
+POST {{baseUrl}}/content/{{contentId}}/approve
+Authorization: Bearer {{brandToken}}
+Content-Type: application/json
+
+### 12. Reject content (Brand) - Convenience method
+POST {{baseUrl}}/content/{{contentId}}/reject
+Authorization: Bearer {{brandToken}}
+Content-Type: application/json
+
+{
+  "feedback": "Please adjust the lighting and add more product focus"
+}
+
+### 13. Update content status (Brand) - Full method
+PUT {{baseUrl}}/content/{{contentId}}/status
+Authorization: Bearer {{brandToken}}
+Content-Type: application/json
+
+{
+  "status": "APPROVED",
+  "feedback": "Great content! Approved for publication."
+}
+
+### 14. Add performance data (Influencer)
+PUT {{baseUrl}}/content/{{contentId}}/performance
+Authorization: Bearer {{influencerToken}}
+Content-Type: application/json
+
+{
+  "views": 15000,
+  "likes": 1200,
+  "comments": 85,
+  "shares": 45,
+  "engagementRate": 8.7,
+  "reach": 12500,
+  "impressions": 18000
+}
+
+### 15. Delete content submission (Influencer - only if PENDING/REJECTED)
+DELETE {{baseUrl}}/content/{{contentId}}
+Authorization: Bearer {{influencerToken}}
+
+### File Upload Workflow Example:
+# 1. Create content submission (step 2)
+# 2. Get the contentId from the response
+# 3. Upload files using the contentId (step 3)
+# 4. Brand reviews content (steps 6-8)
+# 5. Brand approves/rejects (steps 11-13)
+# 6. If approved, influencer publishes and adds performance data (step 14)
+
+### Content Status Flow:
+# PENDING -> APPROVED -> COMPLETED -> PAID
+# PENDING -> REJECTED -> (can be updated and resubmitted)
+
+### Error Testing:
+
+### Try to upload invalid file type (should fail)
+POST {{baseUrl}}/content/upload/{{contentId}}
+Authorization: Bearer {{influencerToken}}
+# Upload a .txt file or other unsupported format
+
+### Try to access another user's content (should fail)
+GET {{baseUrl}}/content/another_users_content_id
+Authorization: Bearer {{influencerToken}}
+
+### Try brand actions as influencer (should fail)
+POST {{baseUrl}}/content/{{contentId}}/approve
+Authorization: Bearer {{influencerToken}}

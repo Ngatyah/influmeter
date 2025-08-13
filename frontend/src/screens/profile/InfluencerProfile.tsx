@@ -26,6 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
+import { formatSafeDate } from '../../utils/dateUtils'
 
 export default function InfluencerProfile() {
   const { id } = useParams()
@@ -237,7 +238,7 @@ export default function InfluencerProfile() {
                         </div>
                         <div className="flex items-center space-x-1">
                           <Calendar className="w-4 h-4" />
-                          <span>Joined {new Date(influencer.joinedDate).toLocaleDateString()}</span>
+                          <span>Joined {formatSafeDate(influencer.joinedDate)}</span>
                         </div>
                       </div>
                     </div>
@@ -399,7 +400,7 @@ export default function InfluencerProfile() {
                       <p className="text-sm text-slate-600 mb-2">{work.brand}</p>
                       <div className="flex items-center justify-between text-xs text-slate-500 mb-3">
                         <span>{work.platform} • {work.type}</span>
-                        <span>{new Date(work.date).toLocaleDateString()}</span>
+                        <span>{formatSafeDate(work.date)}</span>
                       </div>
                       <div className="grid grid-cols-3 gap-2 text-xs">
                         <div>
@@ -474,7 +475,7 @@ export default function InfluencerProfile() {
                         </div>
                       </div>
                       <p className="text-slate-700 mb-2">{review.comment}</p>
-                      <p className="text-xs text-slate-500">{new Date(review.date).toLocaleDateString()}</p>
+                      <p className="text-xs text-slate-500">{formatSafeDate(review.date)}</p>
                     </CardContent>
                   </Card>
                 ))}

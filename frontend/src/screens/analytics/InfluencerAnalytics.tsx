@@ -23,6 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
+import { formatSafeDate } from '../../utils/dateUtils'
 
 export default function InfluencerAnalytics() {
   const navigate = useNavigate()
@@ -435,7 +436,7 @@ export default function InfluencerAnalytics() {
                             <span>•</span>
                             <span>{content.type}</span>
                             <span>•</span>
-                            <span>{new Date(content.date).toLocaleDateString()}</span>
+                            <span>{formatSafeDate(content.date)}</span>
                           </div>
                         </div>
                       </div>

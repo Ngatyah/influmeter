@@ -20,6 +20,9 @@ export class UsersService {
       where: { id },
       include: {
         profile: true,
+        influencerProfile: true,
+        brandProfile: true,
+        socialAccounts: true,
         onboardingProgress: true,
       },
     });

@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatSafeDate } from '../../utils/dateUtils'
 import { 
   ArrowLeft, 
   DollarSign, 
@@ -316,7 +317,7 @@ export default function InfluencerEarnings() {
                         <div className="text-right">
                           <p className="font-bold text-green-600">${earning.amount.toFixed(2)}</p>
                           <p className="text-xs text-slate-500">
-                            {new Date(earning.dateEarned).toLocaleDateString()}
+                            {formatSafeDate(earning.dateEarned)}
                           </p>
                         </div>
                         
@@ -368,7 +369,7 @@ export default function InfluencerEarnings() {
                             )}
                           </div>
                           <p className="text-sm text-slate-600">
-                            Requested {new Date(payout.requestedAt).toLocaleDateString()}
+                            Requested {formatSafeDate(payout.requestedAt)}
                           </p>
                           {payout.transactionId && (
                             <p className="text-xs text-slate-500 font-mono">{payout.transactionId}</p>

@@ -12,6 +12,9 @@ import { UsersModule } from './users/users.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { SocialModule } from './social/social.module';
+import { CampaignsModule } from './campaigns/campaigns.module';
+import { ContentModule } from './content/content.module';
+import { PaymentsModule } from './payments/payments.module';
 
 @Module({
   imports: [
@@ -25,6 +28,12 @@ import { SocialModule } from './social/social.module';
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'public'),
       serveRoot: '/public',
+    }),
+
+    // Uploaded content files
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'uploads'),
+      serveRoot: '/uploads',
     }),
 
     // Scheduling
@@ -45,6 +54,9 @@ import { SocialModule } from './social/social.module';
     DashboardModule,
     OnboardingModule,
     SocialModule,
+    CampaignsModule,
+    ContentModule,
+    PaymentsModule,
   ],
 })
 export class AppModule {}

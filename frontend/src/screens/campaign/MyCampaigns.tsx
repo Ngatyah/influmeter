@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { 
   ArrowLeft, 
@@ -17,40 +17,76 @@ import {
   TrendingUp,
   CheckCircle,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Loader2,
+  RefreshCw
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Badge } from '../../components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
-
-interface Campaign {
-  id: string
-  title: string
-  status: 'draft' | 'active' | 'paused' | 'completed' | 'expired'
-  budget: number
-  spent: number
-  startDate: string
-  endDate: string
-  influencersJoined: number
-  targetInfluencers: number
-  contentSubmitted: number
-  contentApproved: number
-  totalReach: number
-  engagement: number
-  objective: string
-  createdAt: string
-}
+import { campaignService, Campaign } from '../../services/campaign.service'
+import { formatSafeDate } from '../../utils/dateUtils'
 
 export default function MyCampaigns() {
   const navigate = useNavigate()
   const [selectedTab, setSelectedTab] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [showFilters, setShowFilters] = useState(false)
+  const [campaigns, setCampaigns] = useState<Campaign[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
 
-  // Mock campaigns data
-  const campaigns: Campaign[] = [
+  // Load campaigns from backend
+  useEffect(() => {
+    loadCampaigns()
+  }, [])
+
+  const loadCampaigns = async (showRefreshLoader = false) => {
+    try {
+      if (showRefreshLoader) {
+        setRefreshing(true)
+      } else {
+        setLoading(true)
+      }
+      setError(null)
+
+      const filters = {
+        search: searchTerm || undefined,
+        status: selectedTab !== 'all' ? selectedTab.toUpperCase() as any : undefined,
+      }
+
+      const result = await campaignService.getMyCampaigns(filters)
+      setCampaigns(result.campaigns)
+    } catch (error) {
+      console.error('Failed to load campaigns:', error)
+      setError(error instanceof Error ? error.message : 'Failed to load campaigns')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
+
+  // Refresh campaigns
+  const refreshCampaigns = () => {
+    loadCampaigns(true)
+  }
+
+  // Handle search and filter changes
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      if (!loading) {
+        loadCampaigns()
+      }
+    }, 300)
+
+    return () => clearTimeout(debounceTimer)
+  }, [searchTerm, selectedTab])
+
+  // Mock campaigns data for fallback (to be removed after testing)
+  const mockCampaigns: any[] = [
     {
       id: '1',
       title: 'Summer Skincare Collection Launch',
@@ -121,41 +157,59 @@ export default function MyCampaigns() {
     }
   ]
 
-  const getStatusColor = (status: Campaign['status']) => {
-    switch (status) {
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
       case 'active': return 'bg-green-100 text-green-800'
       case 'completed': return 'bg-blue-100 text-blue-800'
       case 'paused': return 'bg-yellow-100 text-yellow-800'
       case 'draft': return 'bg-gray-100 text-gray-800'
-      case 'expired': return 'bg-red-100 text-red-800'
+      case 'cancelled': return 'bg-red-100 text-red-800'
       default: return 'bg-gray-100 text-gray-800'
     }
   }
 
-  const getStatusIcon = (status: Campaign['status']) => {
-    switch (status) {
+  const getStatusIcon = (status: string) => {
+    switch (status.toLowerCase()) {
       case 'active': return <Play className="w-4 h-4" />
       case 'completed': return <CheckCircle className="w-4 h-4" />
       case 'paused': return <Pause className="w-4 h-4" />
       case 'draft': return <Edit3 className="w-4 h-4" />
-      case 'expired': return <AlertCircle className="w-4 h-4" />
+      case 'cancelled': return <AlertCircle className="w-4 h-4" />
       default: return <Clock className="w-4 h-4" />
     }
   }
 
   const filteredCampaigns = campaigns.filter(campaign => {
-    const matchesTab = selectedTab === 'all' || campaign.status === selectedTab
+    const matchesTab = selectedTab === 'all' || campaign.status.toUpperCase() === selectedTab.toUpperCase()
     const matchesSearch = !searchTerm || 
       campaign.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      campaign.objective.toLowerCase().includes(searchTerm.toLowerCase())
+      (campaign.objective && campaign.objective.toLowerCase().includes(searchTerm.toLowerCase()))
     return matchesTab && matchesSearch
   })
 
-  const formatCurrency = (amount: number) => `$${amount.toLocaleString()}`
-  const formatNumber = (num: number) => {
+  const formatCurrency = (amount: number | undefined | null) => {
+    if (amount === null || amount === undefined || isNaN(amount)) return '$0'
+    return `$${amount.toLocaleString()}`
+  }
+  const formatNumber = (num: number | undefined | null) => {
+    if (num === null || num === undefined || isNaN(num)) return '0'
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`
     if (num >= 1000) return `${(num / 1000).toFixed(1)}K`
     return num.toString()
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-slate-600">Loading campaigns...</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -195,6 +249,39 @@ export default function MyCampaigns() {
         </div>
       </header>
 
+      {/* Error Display */}
+      {error && (
+        <div className="max-w-7xl mx-auto px-6 pt-4">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+                <p className="text-sm text-red-800">{error}</p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={refreshCampaigns}
+                  disabled={refreshing}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setError(null)}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  ×
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto px-6 py-8">
         
         {/* Stats Overview */}
@@ -205,7 +292,7 @@ export default function MyCampaigns() {
                 <div>
                   <p className="text-sm text-slate-600">Active Campaigns</p>
                   <p className="text-2xl font-bold text-slate-900">
-                    {campaigns.filter(c => c.status === 'active').length}
+                    {campaigns.filter(c => c.status === 'ACTIVE').length}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
@@ -219,9 +306,9 @@ export default function MyCampaigns() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-600">Total Spent</p>
+                  <p className="text-sm text-slate-600">Total Budget</p>
                   <p className="text-2xl font-bold text-slate-900">
-                    {formatCurrency(campaigns.reduce((sum, c) => sum + c.spent, 0))}
+                    {formatCurrency(campaigns.reduce((sum, c) => sum + (c.budget || 0), 0))}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -235,9 +322,9 @@ export default function MyCampaigns() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-600">Total Reach</p>
+                  <p className="text-sm text-slate-600">Total Participants</p>
                   <p className="text-2xl font-bold text-slate-900">
-                    {formatNumber(campaigns.reduce((sum, c) => sum + c.totalReach, 0))}
+                    {campaigns.reduce((sum, c) => sum + (c._count?.participants || 0), 0)}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
@@ -251,9 +338,9 @@ export default function MyCampaigns() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-600">Avg. Engagement</p>
+                  <p className="text-sm text-slate-600">Total Content</p>
                   <p className="text-2xl font-bold text-slate-900">
-                    {(campaigns.reduce((sum, c) => sum + c.engagement, 0) / campaigns.length).toFixed(1)}%
+                    {campaigns.reduce((sum, c) => sum + (c._count?.contentSubmissions || 0), 0)}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center">
@@ -269,19 +356,19 @@ export default function MyCampaigns() {
           <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="all">All ({campaigns.length})</TabsTrigger>
             <TabsTrigger value="active">
-              Active ({campaigns.filter(c => c.status === 'active').length})
+              Active ({campaigns.filter(c => c.status === 'ACTIVE').length})
             </TabsTrigger>
             <TabsTrigger value="draft">
-              Draft ({campaigns.filter(c => c.status === 'draft').length})
+              Draft ({campaigns.filter(c => c.status === 'DRAFT').length})
             </TabsTrigger>
             <TabsTrigger value="paused">
-              Paused ({campaigns.filter(c => c.status === 'paused').length})
+              Paused ({campaigns.filter(c => c.status === 'PAUSED').length})
             </TabsTrigger>
             <TabsTrigger value="completed">
-              Completed ({campaigns.filter(c => c.status === 'completed').length})
+              Completed ({campaigns.filter(c => c.status === 'COMPLETED').length})
             </TabsTrigger>
-            <TabsTrigger value="expired">
-              Expired ({campaigns.filter(c => c.status === 'expired').length})
+            <TabsTrigger value="cancelled">
+              Cancelled ({campaigns.filter(c => c.status === 'CANCELLED').length})
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -316,15 +403,24 @@ export default function MyCampaigns() {
                 {/* Progress */}
                 <div>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-slate-600">Budget Progress</span>
-                    <span className="font-medium">
-                      {formatCurrency(campaign.spent)} / {formatCurrency(campaign.budget)}
+                    <span className="text-slate-600">Campaign Status</span>
+                    <span className="font-medium capitalize">
+                      {campaign.status}
                     </span>
                   </div>
                   <div className="w-full bg-slate-200 rounded-full h-2">
                     <div 
-                      className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full"
-                      style={{ width: `${Math.min((campaign.spent / campaign.budget) * 100, 100)}%` }}
+                      className={`h-2 rounded-full ${
+                        campaign.status === 'ACTIVE' ? 'bg-gradient-to-r from-green-400 to-green-600' :
+                        campaign.status === 'COMPLETED' ? 'bg-gradient-to-r from-blue-400 to-blue-600' :
+                        campaign.status === 'DRAFT' ? 'bg-gradient-to-r from-gray-400 to-gray-600' :
+                        'bg-gradient-to-r from-yellow-400 to-yellow-600'
+                      }`}
+                      style={{ 
+                        width: campaign.status === 'ACTIVE' ? '100%' : 
+                               campaign.status === 'COMPLETED' ? '100%' : 
+                               campaign.status === 'DRAFT' ? '25%' : '50%' 
+                      }}
                     />
                   </div>
                 </div>
@@ -332,20 +428,20 @@ export default function MyCampaigns() {
                 {/* Metrics */}
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <p className="text-slate-600">Influencers</p>
-                    <p className="font-semibold">{campaign.influencersJoined}/{campaign.targetInfluencers}</p>
+                    <p className="text-slate-600">Applicants</p>
+                    <p className="font-semibold">{campaign._count?.applications || 0}</p>
                   </div>
                   <div>
-                    <p className="text-slate-600">Content</p>
-                    <p className="font-semibold">{campaign.contentApproved}/{campaign.contentSubmitted}</p>
+                    <p className="text-slate-600">Participants</p>
+                    <p className="font-semibold">{campaign._count?.participants || 0}</p>
                   </div>
                   <div>
-                    <p className="text-slate-600">Reach</p>
-                    <p className="font-semibold">{formatNumber(campaign.totalReach)}</p>
+                    <p className="text-slate-600">Content Submitted</p>
+                    <p className="font-semibold">{campaign._count?.contentSubmissions || 0}</p>
                   </div>
                   <div>
-                    <p className="text-slate-600">Engagement</p>
-                    <p className="font-semibold text-green-600">{campaign.engagement}%</p>
+                    <p className="text-slate-600">Budget</p>
+                    <p className="font-semibold text-green-600">{formatCurrency(campaign.budget)}</p>
                   </div>
                 </div>
 
@@ -354,12 +450,22 @@ export default function MyCampaigns() {
                   <div className="flex items-center justify-between text-xs text-slate-500">
                     <div className="flex items-center space-x-1">
                       <Calendar className="w-3 h-3" />
-                      <span>{new Date(campaign.startDate).toLocaleDateString()}</span>
+                      <span>
+                        {campaign.startDate ? 
+                          formatSafeDate(campaign.startDate) : 
+                          'No start date'
+                        }
+                      </span>
                     </div>
                     <span>→</span>
                     <div className="flex items-center space-x-1">
                       <Calendar className="w-3 h-3" />
-                      <span>{new Date(campaign.endDate).toLocaleDateString()}</span>
+                      <span>
+                        {campaign.endDate ? 
+                          formatSafeDate(campaign.endDate) : 
+                          'No end date'
+                        }
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -379,7 +485,7 @@ export default function MyCampaigns() {
                     View
                   </Button>
                   
-                  {campaign.status === 'draft' && (
+                  {campaign.status === 'DRAFT' && (
                     <Button 
                       size="sm" 
                       className="flex-1"
@@ -393,7 +499,7 @@ export default function MyCampaigns() {
                     </Button>
                   )}
                   
-                  {campaign.status === 'active' && (
+                  {campaign.status === 'ACTIVE' && (
                     <Button 
                       size="sm" 
                       variant="secondary"

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { 
   Search, 
@@ -14,40 +14,19 @@ import {
   Heart,
   CheckCircle,
   X,
-  Star
+  Star,
+  Loader2,
+  RefreshCw,
+  AlertTriangle
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Badge } from '../../components/ui/badge'
 import { Checkbox } from '../../components/ui/checkbox'
+import { campaignService, Campaign, CampaignFilters } from '../../services/campaign.service'
+import { formatSafeDate } from '../../utils/dateUtils'
 
-interface Campaign {
-  id: string
-  title: string
-  brand: {
-    name: string
-    logo: string
-    verified: boolean
-  }
-  description: string
-  payout: string
-  deadline: string
-  requirements: {
-    minFollowers: string
-    platforms: string[]
-    contentType: string[]
-    niches: string[]
-  }
-  location: string[]
-  participantsCount: number
-  maxParticipants: number
-  status: 'open' | 'closing_soon' | 'full'
-  difficulty: 'easy' | 'medium' | 'hard'
-  estimatedHours: string
-  isBookmarked: boolean
-  hasApplied: boolean
-}
 
 interface Filters {
   search: string
@@ -71,88 +50,68 @@ export default function BrowseCampaigns() {
     locations: [],
     contentTypes: []
   })
+  const [campaigns, setCampaigns] = useState<Campaign[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [bookmarkedCampaigns, setBookmarkedCampaigns] = useState<Set<string>>(new Set())
+  const [appliedCampaigns, setAppliedCampaigns] = useState<Set<string>>(new Set())
 
-  // Mock data - replace with API call
-  const [campaigns, setCampaigns] = useState<Campaign[]>([
-    {
-      id: '1',
-      title: 'Summer Skincare Collection Launch',
-      brand: {
-        name: 'NIVEA Kenya',
-        logo: '/api/placeholder/60/60',
-        verified: true
-      },
-      description: 'Promote our new summer skincare line targeting young adults. Create authentic content showcasing product benefits.',
-      payout: '$250-500',
-      deadline: '2024-05-15',
-      requirements: {
-        minFollowers: '10K+',
-        platforms: ['Instagram', 'TikTok'],
-        contentType: ['Reels', 'Stories'],
-        niches: ['Beauty', 'Lifestyle']
-      },
-      location: ['Kenya', 'Tanzania'],
-      participantsCount: 12,
-      maxParticipants: 20,
-      status: 'open',
-      difficulty: 'easy',
-      estimatedHours: '2-3 hours',
-      isBookmarked: false,
-      hasApplied: false
-    },
-    {
-      id: '2',
-      title: 'Tech Gadget Review Campaign',
-      brand: {
-        name: 'TechHub Africa',
-        logo: '/api/placeholder/60/60',
-        verified: false
-      },
-      description: 'Review our latest smartphone accessories. Detailed video reviews showcasing features and benefits.',
-      payout: '$150-300',
-      deadline: '2024-05-10',
-      requirements: {
-        minFollowers: '5K+',
-        platforms: ['YouTube', 'Instagram'],
-        contentType: ['YouTube Video', 'Reels'],
-        niches: ['Technology', 'Reviews']
-      },
-      location: ['Uganda', 'Kenya'],
-      participantsCount: 18,
-      maxParticipants: 20,
-      status: 'closing_soon',
-      difficulty: 'medium',
-      estimatedHours: '4-6 hours',
-      isBookmarked: true,
-      hasApplied: false
-    },
-    {
-      id: '3',
-      title: 'Fitness Challenge Content Series',
-      brand: {
-        name: 'FitLife Africa',
-        logo: '/api/placeholder/60/60',
-        verified: true
-      },
-      description: 'Create motivational fitness content for our 30-day challenge. Share workout tips and healthy lifestyle content.',
-      payout: '$400-800',
-      deadline: '2024-05-20',
-      requirements: {
-        minFollowers: '25K+',
-        platforms: ['Instagram', 'TikTok', 'YouTube'],
-        contentType: ['Reels', 'YouTube Video', 'Stories'],
-        niches: ['Fitness', 'Health', 'Wellness']
-      },
-      location: ['Nigeria', 'South Africa'],
-      participantsCount: 15,
-      maxParticipants: 15,
-      status: 'full',
-      difficulty: 'hard',
-      estimatedHours: '6-8 hours',
-      isBookmarked: false,
-      hasApplied: true
+  // Load campaigns from backend
+  useEffect(() => {
+    loadCampaigns()
+  }, [])
+
+  const loadCampaigns = async (showRefreshLoader = false) => {
+    try {
+      if (showRefreshLoader) {
+        setRefreshing(true)
+      } else {
+        setLoading(true)
+      }
+      setError(null)
+
+      const searchFilters = {
+        search: filters.search || undefined,
+        minBudget: filters.minPayout ? parseFloat(filters.minPayout) : undefined,
+        maxBudget: filters.maxPayout ? parseFloat(filters.maxPayout) : undefined,
+      }
+
+      const result = await campaignService.browseCampaigns(searchFilters)
+      
+      // Map campaigns with application status
+      const campaignsWithStatus = result.campaigns.map((campaign: any) => ({
+        ...campaign,
+        hasApplied: campaign.applications && campaign.applications.length > 0,
+        applicationStatus: campaign.applications?.[0]?.status || null
+      }))
+      
+      setCampaigns(campaignsWithStatus)
+    } catch (error) {
+      console.error('Failed to load campaigns:', error)
+      setError(error instanceof Error ? error.message : 'Failed to load campaigns')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
     }
-  ])
+  }
+
+  // Refresh campaigns
+  const refreshCampaigns = () => {
+    loadCampaigns(true)
+  }
+
+  // Handle search and filter changes with debouncing
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      if (!loading) {
+        loadCampaigns()
+      }
+    }, 300)
+
+    return () => clearTimeout(debounceTimer)
+  }, [filters.search, filters.minPayout, filters.maxPayout])
+
 
   const platforms = ['Instagram', 'TikTok', 'YouTube', 'Twitter/X']
   const niches = ['Beauty', 'Fashion', 'Technology', 'Fitness', 'Food', 'Travel', 'Lifestyle']
@@ -173,13 +132,15 @@ export default function BrowseCampaigns() {
   }
 
   const toggleBookmark = (campaignId: string) => {
-    setCampaigns(prev => 
-      prev.map(campaign => 
-        campaign.id === campaignId 
-          ? { ...campaign, isBookmarked: !campaign.isBookmarked }
-          : campaign
-      )
-    )
+    setBookmarkedCampaigns(prev => {
+      const newBookmarks = new Set(prev)
+      if (newBookmarks.has(campaignId)) {
+        newBookmarks.delete(campaignId)
+      } else {
+        newBookmarks.add(campaignId)
+      }
+      return newBookmarks
+    })
   }
 
   const clearFilters = () => {
@@ -194,7 +155,36 @@ export default function BrowseCampaigns() {
     })
   }
 
-  const filteredCampaigns = campaigns.filter(campaign => {
+  // Transform backend campaigns to display format
+  const transformedCampaigns = campaigns.map(campaign => ({
+    ...campaign,
+    brand: {
+      name: campaign.brand?.brandProfile?.companyName || 
+             `${campaign.brand?.profile?.firstName || ''} ${campaign.brand?.profile?.lastName || ''}`.trim() || 'Unknown Brand',
+      logo: campaign.brand?.brandProfile?.logoUrl || '/api/placeholder/60/60',
+      verified: true // TODO: Add verification field to backend
+    },
+    payout: campaign.budget ? `$${campaign.budget}` : 'TBD',
+    deadline: campaign.endDate || '',
+    requirements: {
+      minFollowers: '5K+', // TODO: Extract from targetCriteria
+      platforms: ['Instagram', 'TikTok'], // TODO: Extract from requirements
+      contentType: ['Posts', 'Stories'], // TODO: Extract from requirements
+      niches: ['General'] // TODO: Extract from requirements
+    },
+    location: ['Global'], // TODO: Extract from targetCriteria
+    participantsCount: campaign._count?.participants || 0,
+    maxParticipants: 50, // TODO: Add to backend
+    status: campaign.status === 'ACTIVE' ? 'open' : campaign.status === 'COMPLETED' ? 'full' : 'open',
+    difficulty: 'medium' as const, // TODO: Calculate from requirements
+    estimatedHours: '3-5 hours', // TODO: Extract from requirements
+    isBookmarked: bookmarkedCampaigns.has(campaign.id),
+    // Use the backend application status instead of local state
+    hasApplied: campaign.hasApplied || false,
+    applicationStatus: campaign.applicationStatus || null
+  }))
+
+  const filteredCampaigns = transformedCampaigns.filter(campaign => {
     if (filters.search && !campaign.title.toLowerCase().includes(filters.search.toLowerCase()) && 
         !campaign.brand.name.toLowerCase().includes(filters.search.toLowerCase())) {
       return false
@@ -207,6 +197,20 @@ export default function BrowseCampaigns() {
     }
     return true
   })
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-slate-600">Loading campaigns...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -231,6 +235,39 @@ export default function BrowseCampaigns() {
           </div>
         </div>
       </header>
+
+      {/* Error Display */}
+      {error && (
+        <div className="max-w-7xl mx-auto px-6 pt-4">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+                <p className="text-sm text-red-800">{error}</p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={refreshCampaigns}
+                  disabled={refreshing}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setError(null)}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  ×
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex relative">
         {/* Filters Sidebar */}
@@ -376,12 +413,12 @@ export default function BrowseCampaigns() {
 }
 
 function CampaignCard({ campaign, onToggleBookmark, onViewDetails, onApply }: { 
-  campaign: Campaign, 
+  campaign: any, 
   onToggleBookmark: (id: string) => void,
   onViewDetails: () => void,
   onApply: () => void
 }) {
-  const getStatusColor = (status: Campaign['status']) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
       case 'open': return 'bg-green-500'
       case 'closing_soon': return 'bg-yellow-500'
@@ -390,7 +427,7 @@ function CampaignCard({ campaign, onToggleBookmark, onViewDetails, onApply }: {
     }
   }
 
-  const getDifficultyColor = (difficulty: Campaign['difficulty']) => {
+  const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case 'easy': return 'text-green-600 bg-green-50'
       case 'medium': return 'text-yellow-600 bg-yellow-50'
@@ -447,7 +484,7 @@ function CampaignCard({ campaign, onToggleBookmark, onViewDetails, onApply }: {
           </div>
           <div className="flex items-center space-x-2">
             <Calendar className="w-4 h-4 text-orange-500" />
-            <span className="text-sm text-slate-600">Due {new Date(campaign.deadline).toLocaleDateString()}</span>
+            <span className="text-sm text-slate-600">Due {formatSafeDate(campaign.deadline)}</span>
           </div>
           <div className="flex items-center space-x-2">
             <Users className="w-4 h-4 text-purple-500" />

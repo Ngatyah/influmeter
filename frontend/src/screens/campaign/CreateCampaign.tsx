@@ -11,13 +11,17 @@ import {
   Save,
   Send,
   Upload,
-  X
+  X,
+  Loader2,
+  CheckCircle
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Badge } from '../../components/ui/badge'
 import { Checkbox } from '../../components/ui/checkbox'
+import { useToastActions } from '../../components/ui/toast-provider'
+import { campaignService } from '../../services/campaign.service'
 
 interface CampaignData {
   title: string
@@ -59,6 +63,31 @@ interface CampaignData {
       requireReferralCodes: boolean
       requireClickTracking: boolean
     }
+    contentTypes: string[]
+    accountHealth: {
+      publicAccount: boolean
+      verifiedAccount: boolean
+      consistentPosting: boolean
+      noFakeFollowers: boolean
+      authenticEngagement: boolean
+      completeProfile: boolean
+    }
+    verification: {
+      verifiedEmail: boolean
+      phoneVerification: boolean
+      paymentDetails: boolean
+      taxInformation: boolean
+    }
+    platformVerification: string[]
+    locationSpecific: boolean
+    manualApproval: boolean
+    requireHighQuality: boolean
+  }
+  approvalSettings: {
+    requiresApproval: boolean
+    autoApproveInfluencers: string[]
+    approvalInstructions: string
+    trustMode: 'strict' | 'moderate' | 'flexible'
   }
 }
 
@@ -68,11 +97,15 @@ const steps = [
   { id: 3, title: 'Budget & Timeline', icon: DollarSign },
   { id: 4, title: 'Content Brief', icon: FileText },
   { id: 5, title: 'Influencer Requirements', icon: Settings },
+  { id: 6, title: 'Approval Settings', icon: CheckCircle },
 ]
 
 export default function CreateCampaign() {
   const navigate = useNavigate()
+  const { success, error: showError } = useToastActions()
   const [currentStep, setCurrentStep] = useState(1)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [campaignData, setCampaignData] = useState<CampaignData>({
     title: '',
     objective: '',
@@ -112,7 +145,32 @@ export default function CreateCampaign() {
         requireExperience: false,
         requireReferralCodes: false,
         requireClickTracking: false
-      }
+      },
+      contentTypes: [],
+      accountHealth: {
+        publicAccount: true,
+        verifiedAccount: false,
+        consistentPosting: true,
+        noFakeFollowers: true,
+        authenticEngagement: true,
+        completeProfile: true
+      },
+      verification: {
+        verifiedEmail: true,
+        phoneVerification: false,
+        paymentDetails: true,
+        taxInformation: false
+      },
+      platformVerification: ['Instagram', 'TikTok', 'YouTube', 'Twitter/X', 'Facebook'],
+      locationSpecific: false,
+      manualApproval: false,
+      requireHighQuality: false
+    },
+    approvalSettings: {
+      requiresApproval: true,
+      autoApproveInfluencers: [],
+      approvalInstructions: '',
+      trustMode: 'moderate'
     }
   })
 
@@ -144,15 +202,77 @@ export default function CreateCampaign() {
     }
   }
 
-  const saveDraft = () => {
-    // Save campaign as draft
-    console.log('Saving draft:', campaignData)
+  const saveDraft = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const campaignPayload = campaignService.transformCampaignData(campaignData)
+      campaignPayload.status = 'DRAFT'
+      
+      const createdCampaign = await campaignService.createCampaign(campaignPayload)
+      console.log('Campaign saved as draft:', createdCampaign)
+      
+      // Show success toast and navigate
+      success(
+        'Draft Saved!', 
+        'Your campaign has been saved as a draft. You can continue editing it later.',
+        {
+          action: {
+            label: 'View Campaigns',
+            onClick: () => navigate('/campaigns')
+          }
+        }
+      )
+      
+      // Navigate after a short delay to let user see the toast
+      setTimeout(() => navigate('/campaigns'), 1500)
+    } catch (error) {
+      console.error('Failed to save campaign:', error)
+      setError(error instanceof Error ? error.message : 'Failed to save campaign')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const launchCampaign = () => {
-    // Launch campaign
-    console.log('Launching campaign:', campaignData)
-    navigate('/dashboard/brand')
+  const launchCampaign = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      // Basic validation
+      if (!campaignData.title || !campaignData.objective) {
+        setError('Please fill in all required fields (title and objective)')
+        return
+      }
+      
+      const campaignPayload = campaignService.transformCampaignData(campaignData)
+      campaignPayload.status = 'ACTIVE'
+      
+      const createdCampaign = await campaignService.createCampaign(campaignPayload)
+      console.log('Campaign launched:', createdCampaign)
+      
+      // Show success toast and navigate
+      success(
+        'Campaign Launched! 🚀', 
+        'Your campaign is now live and visible to influencers. Start receiving applications soon!',
+        {
+          duration: 6000,
+          action: {
+            label: 'View Campaign',
+            onClick: () => navigate(`/campaigns/${createdCampaign.id}`)
+          }
+        }
+      )
+      
+      // Navigate after a short delay to let user see the toast
+      setTimeout(() => navigate('/campaigns'), 2000)
+    } catch (error) {
+      console.error('Failed to launch campaign:', error)
+      setError(error instanceof Error ? error.message : 'Failed to launch campaign')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -170,12 +290,30 @@ export default function CreateCampaign() {
               <p className="text-slate-600">Step {currentStep} of {steps.length}</p>
             </div>
           </div>
-          <Button variant="outline" onClick={saveDraft}>
-            <Save className="w-4 h-4 mr-2" />
+          <Button variant="outline" onClick={saveDraft} disabled={loading}>
+            {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
             Save Draft
           </Button>
         </div>
       </header>
+
+      {/* Error Display */}
+      {error && (
+        <div className="mx-6 mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+            <p className="text-sm text-red-800">{error}</p>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setError(null)}
+              className="ml-auto text-red-600 hover:text-red-700"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="flex">
         {/* Progress Sidebar */}
@@ -248,6 +386,12 @@ export default function CreateCampaign() {
                   updateData={updateCampaignData}
                 />
               )}
+              {currentStep === 6 && (
+                <ApprovalSettingsStep 
+                  data={campaignData}
+                  updateData={updateCampaignData}
+                />
+              )}
 
               {/* Navigation */}
               <div className="flex items-center justify-between mt-8 pt-6 border-t border-slate-200">
@@ -262,8 +406,8 @@ export default function CreateCampaign() {
 
                 <div className="flex space-x-3">
                   {currentStep === steps.length ? (
-                    <Button onClick={launchCampaign} className="bg-primary hover:bg-primary/90">
-                      <Send className="w-4 h-4 mr-2" />
+                    <Button onClick={launchCampaign} className="bg-primary hover:bg-primary/90" disabled={loading}>
+                      {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                       Launch Campaign
                     </Button>
                   ) : (
@@ -490,6 +634,7 @@ function BudgetTimelineStep({ data, updateData }: { data: CampaignData, updateDa
 }
 
 function ContentBriefStep({ data, updateData }: { data: CampaignData, updateData: Function }) {
+  const { success, error: showError, warning } = useToastActions()
   const platforms = ['Instagram', 'TikTok', 'YouTube', 'Twitter/X', 'Facebook']
   const contentRequirements = [
     'Include brand hashtag',
@@ -499,6 +644,121 @@ function ContentBriefStep({ data, updateData }: { data: CampaignData, updateData
     'Use provided copy',
     'Include disclaimer'
   ]
+
+  const [uploadingFiles, setUploadingFiles] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [dragOver, setDragOver] = useState(false)
+
+  const validateAndProcessFiles = (files: FileList | File[]) => {
+    const fileArray = Array.from(files)
+    if (fileArray.length === 0) return []
+
+    // Validate files
+    const maxSize = 10 * 1024 * 1024 // 10MB
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf']
+    const validFiles = fileArray.filter(file => {
+      if (file.size > maxSize) {
+        showError(
+          'File Too Large',
+          `${file.name} is too large. Maximum size is 10MB.`
+        )
+        return false
+      }
+      if (!allowedTypes.includes(file.type)) {
+        showError(
+          'Invalid File Type',
+          `${file.name} has unsupported type. Only JPG, PNG, and PDF files are allowed.`
+        )
+        return false
+      }
+      return true
+    })
+
+    return validFiles
+  }
+
+  const processFiles = async (validFiles: File[]) => {
+    if (validFiles.length === 0) return
+
+    setUploadingFiles(true)
+    setUploadProgress(0)
+
+    try {
+      // For now, we'll just add files to the form data
+      // In a real implementation, you would upload to a file service
+      updateData('contentBrief', { 
+        files: [...data.contentBrief.files, ...validFiles]
+      })
+      
+      // Simulate upload progress
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 100) {
+            clearInterval(progressInterval)
+            setUploadingFiles(false)
+            
+            // Show success toast when upload completes
+            success(
+              `Files Uploaded Successfully!`,
+              `${validFiles.length} file${validFiles.length > 1 ? 's' : ''} added to your campaign.`
+            )
+            
+            return 100
+          }
+          return prev + 10
+        })
+      }, 100)
+
+    } catch (error) {
+      console.error('File upload failed:', error)
+      showError('Upload Failed', 'File upload failed. Please try again.')
+    }
+  }
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files) return
+    
+    const validFiles = validateAndProcessFiles(files)
+    await processFiles(validFiles)
+    
+    // Reset input
+    event.target.value = ''
+  }
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    setDragOver(true)
+  }
+
+  const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    setDragOver(false)
+  }
+
+  const handleDrop = async (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    setDragOver(false)
+    
+    const files = event.dataTransfer.files
+    if (!files) return
+    
+    const validFiles = validateAndProcessFiles(files)
+    await processFiles(validFiles)
+  }
+
+  const removeFile = (indexToRemove: number) => {
+    const updatedFiles = data.contentBrief.files.filter((_, index) => index !== indexToRemove)
+    updateData('contentBrief', { files: updatedFiles })
+  }
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
 
   return (
     <div className="space-y-6">
@@ -561,10 +821,87 @@ function ContentBriefStep({ data, updateData }: { data: CampaignData, updateData
 
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-2">Upload Brand Assets</label>
-        <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 text-center">
-          <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-          <p className="text-sm text-slate-600">Drag and drop files or click to browse</p>
-          <p className="text-xs text-slate-500 mt-1">PNG, JPG, PDF up to 10MB</p>
+        
+        {/* File Upload Area */}
+        <div className="space-y-4">
+          <div 
+            className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+              dragOver 
+                ? 'border-primary bg-primary/5' 
+                : 'border-slate-200 hover:border-slate-300'
+            }`}
+            onClick={() => document.getElementById('file-upload')?.click()}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            <input
+              id="file-upload"
+              type="file"
+              multiple
+              accept="image/jpeg,image/jpg,image/png,application/pdf"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+            
+            {uploadingFiles ? (
+              <div className="space-y-3">
+                <Loader2 className="w-8 h-8 text-slate-400 mx-auto animate-spin" />
+                <p className="text-sm text-slate-600">Uploading files...</p>
+                <div className="w-full bg-slate-200 rounded-full h-2">
+                  <div 
+                    className="bg-primary h-2 rounded-full transition-all duration-300" 
+                    style={{ width: `${uploadProgress}%` }}
+                  ></div>
+                </div>
+                <p className="text-xs text-slate-500">{uploadProgress}% complete</p>
+              </div>
+            ) : (
+              <div>
+                <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                <p className="text-sm text-slate-600">Drag and drop files or click to browse</p>
+                <p className="text-xs text-slate-500 mt-1">PNG, JPG, PDF up to 10MB</p>
+              </div>
+            )}
+          </div>
+
+          {/* Uploaded Files List */}
+          {data.contentBrief.files.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-slate-700">Uploaded Files ({data.contentBrief.files.length})</p>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {data.contentBrief.files.map((file, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-slate-200 rounded flex items-center justify-center">
+                        {file.type.startsWith('image/') ? (
+                          <Image className="w-4 h-4 text-slate-600" />
+                        ) : (
+                          <FileText className="w-4 h-4 text-slate-600" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-900 truncate max-w-xs">
+                          {file.name}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {formatFileSize(file.size)}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeFile(index)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -655,19 +992,52 @@ function InfluencerRequirementsStep({ data, updateData }: { data: CampaignData, 
           </div>
           <div className="space-y-3">
             <div className="flex items-center space-x-2">
-              <Checkbox id="require_past_campaigns" />
+              <Checkbox 
+                id="require_past_campaigns"
+                checked={data.influencerRequirements.pastPerformance.requireExperience}
+                onCheckedChange={(checked) => {
+                  updateData('influencerRequirements', {
+                    pastPerformance: {
+                      ...data.influencerRequirements.pastPerformance,
+                      requireExperience: !!checked
+                    }
+                  })
+                }}
+              />
               <label htmlFor="require_past_campaigns" className="text-sm text-slate-700">
                 Require previous campaign experience
               </label>
             </div>
             <div className="flex items-center space-x-2">
-              <Checkbox id="require_referral_codes" />
+              <Checkbox 
+                id="require_referral_codes"
+                checked={data.influencerRequirements.pastPerformance.requireReferralCodes}
+                onCheckedChange={(checked) => {
+                  updateData('influencerRequirements', {
+                    pastPerformance: {
+                      ...data.influencerRequirements.pastPerformance,
+                      requireReferralCodes: !!checked
+                    }
+                  })
+                }}
+              />
               <label htmlFor="require_referral_codes" className="text-sm text-slate-700">
                 Must have used referral/promo codes before
               </label>
             </div>
             <div className="flex items-center space-x-2">
-              <Checkbox id="require_click_tracking" />
+              <Checkbox 
+                id="require_click_tracking"
+                checked={data.influencerRequirements.pastPerformance.requireClickTracking}
+                onCheckedChange={(checked) => {
+                  updateData('influencerRequirements', {
+                    pastPerformance: {
+                      ...data.influencerRequirements.pastPerformance,
+                      requireClickTracking: !!checked
+                    }
+                  })
+                }}
+              />
               <label htmlFor="require_click_tracking" className="text-sm text-slate-700">
                 Must provide click-through analytics
               </label>
@@ -703,7 +1073,15 @@ function InfluencerRequirementsStep({ data, updateData }: { data: CampaignData, 
         <h3 className="text-lg font-semibold text-slate-800">5. Geographic Location</h3>
         <div className="space-y-3">
           <div className="flex items-center space-x-2">
-            <Checkbox id="location_specific" />
+            <Checkbox 
+              id="location_specific"
+              checked={data.influencerRequirements.locationSpecific}
+              onCheckedChange={(checked) => {
+                updateData('influencerRequirements', {
+                  locationSpecific: !!checked
+                })
+              }}
+            />
             <label htmlFor="location_specific" className="text-sm font-medium text-slate-700">
               This campaign is location-specific
             </label>
@@ -737,7 +1115,16 @@ function InfluencerRequirementsStep({ data, updateData }: { data: CampaignData, 
             <div className="space-y-2">
               {contentTypes.map((type) => (
                 <div key={type} className="flex items-center space-x-2">
-                  <Checkbox id={`content-${type}`} />
+                  <Checkbox 
+                    id={`content-${type}`}
+                    checked={data.influencerRequirements.contentTypes.includes(type)}
+                    onCheckedChange={(checked) => {
+                      const newContentTypes = checked 
+                        ? [...data.influencerRequirements.contentTypes, type]
+                        : data.influencerRequirements.contentTypes.filter(t => t !== type)
+                      updateData('influencerRequirements', { contentTypes: newContentTypes })
+                    }}
+                  />
                   <label htmlFor={`content-${type}`} className="text-sm text-slate-700">{type}</label>
                 </div>
               ))}
@@ -753,7 +1140,15 @@ function InfluencerRequirementsStep({ data, updateData }: { data: CampaignData, 
               <Input placeholder="65" className="h-10" />
             </div>
             <div className="flex items-center space-x-2">
-              <Checkbox id="require_high_quality" />
+              <Checkbox 
+                id="require_high_quality"
+                checked={data.influencerRequirements.requireHighQuality}
+                onCheckedChange={(checked) => {
+                  updateData('influencerRequirements', {
+                    requireHighQuality: !!checked
+                  })
+                }}
+              />
               <label htmlFor="require_high_quality" className="text-sm text-slate-700">
                 Require high-quality content (HD/4K)
               </label>
@@ -776,7 +1171,15 @@ function InfluencerRequirementsStep({ data, updateData }: { data: CampaignData, 
               </select>
             </div>
             <div className="flex items-center space-x-2">
-              <Checkbox id="manual_approval" />
+              <Checkbox 
+                id="manual_approval"
+                checked={data.influencerRequirements.manualApproval}
+                onCheckedChange={(checked) => {
+                  updateData('influencerRequirements', {
+                    manualApproval: !!checked
+                  })
+                }}
+              />
               <label htmlFor="manual_approval" className="text-sm text-slate-700">
                 Manual approval required for high-value campaigns
               </label>
@@ -801,19 +1204,52 @@ function InfluencerRequirementsStep({ data, updateData }: { data: CampaignData, 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-3">
             <div className="flex items-center space-x-2">
-              <Checkbox id="public_account" defaultChecked />
+              <Checkbox 
+                id="public_account"
+                checked={data.influencerRequirements.accountHealth.publicAccount}
+                onCheckedChange={(checked) => {
+                  updateData('influencerRequirements', {
+                    accountHealth: {
+                      ...data.influencerRequirements.accountHealth,
+                      publicAccount: !!checked
+                    }
+                  })
+                }}
+              />
               <label htmlFor="public_account" className="text-sm text-slate-700">
                 Account must be public
               </label>
             </div>
             <div className="flex items-center space-x-2">
-              <Checkbox id="verified_account" />
+              <Checkbox 
+                id="verified_account"
+                checked={data.influencerRequirements.accountHealth.verifiedAccount}
+                onCheckedChange={(checked) => {
+                  updateData('influencerRequirements', {
+                    accountHealth: {
+                      ...data.influencerRequirements.accountHealth,
+                      verifiedAccount: !!checked
+                    }
+                  })
+                }}
+              />
               <label htmlFor="verified_account" className="text-sm text-slate-700">
                 Prefer verified accounts
               </label>
             </div>
             <div className="flex items-center space-x-2">
-              <Checkbox id="consistent_posting" defaultChecked />
+              <Checkbox 
+                id="consistent_posting"
+                checked={data.influencerRequirements.accountHealth.consistentPosting}
+                onCheckedChange={(checked) => {
+                  updateData('influencerRequirements', {
+                    accountHealth: {
+                      ...data.influencerRequirements.accountHealth,
+                      consistentPosting: !!checked
+                    }
+                  })
+                }}
+              />
               <label htmlFor="consistent_posting" className="text-sm text-slate-700">
                 Consistent posting behavior (min 3 posts/week)
               </label>
@@ -821,19 +1257,52 @@ function InfluencerRequirementsStep({ data, updateData }: { data: CampaignData, 
           </div>
           <div className="space-y-3">
             <div className="flex items-center space-x-2">
-              <Checkbox id="no_fake_followers" defaultChecked />
+              <Checkbox 
+                id="no_fake_followers"
+                checked={data.influencerRequirements.accountHealth.noFakeFollowers}
+                onCheckedChange={(checked) => {
+                  updateData('influencerRequirements', {
+                    accountHealth: {
+                      ...data.influencerRequirements.accountHealth,
+                      noFakeFollowers: !!checked
+                    }
+                  })
+                }}
+              />
               <label htmlFor="no_fake_followers" className="text-sm text-slate-700">
                 No suspicious follower spikes
               </label>
             </div>
             <div className="flex items-center space-x-2">
-              <Checkbox id="authentic_engagement" defaultChecked />
+              <Checkbox 
+                id="authentic_engagement"
+                checked={data.influencerRequirements.accountHealth.authenticEngagement}
+                onCheckedChange={(checked) => {
+                  updateData('influencerRequirements', {
+                    accountHealth: {
+                      ...data.influencerRequirements.accountHealth,
+                      authenticEngagement: !!checked
+                    }
+                  })
+                }}
+              />
               <label htmlFor="authentic_engagement" className="text-sm text-slate-700">
                 Authentic engagement (no bots)
               </label>
             </div>
             <div className="flex items-center space-x-2">
-              <Checkbox id="complete_profile" defaultChecked />
+              <Checkbox 
+                id="complete_profile"
+                checked={data.influencerRequirements.accountHealth.completeProfile}
+                onCheckedChange={(checked) => {
+                  updateData('influencerRequirements', {
+                    accountHealth: {
+                      ...data.influencerRequirements.accountHealth,
+                      completeProfile: !!checked
+                    }
+                  })
+                }}
+              />
               <label htmlFor="complete_profile" className="text-sm text-slate-700">
                 Complete profile information
               </label>
@@ -848,13 +1317,35 @@ function InfluencerRequirementsStep({ data, updateData }: { data: CampaignData, 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-3">
             <div className="flex items-center space-x-2">
-              <Checkbox id="verified_email" defaultChecked />
+              <Checkbox 
+                id="verified_email"
+                checked={data.influencerRequirements.verification.verifiedEmail}
+                onCheckedChange={(checked) => {
+                  updateData('influencerRequirements', {
+                    verification: {
+                      ...data.influencerRequirements.verification,
+                      verifiedEmail: !!checked
+                    }
+                  })
+                }}
+              />
               <label htmlFor="verified_email" className="text-sm text-slate-700">
                 Verified email address required
               </label>
             </div>
             <div className="flex items-center space-x-2">
-              <Checkbox id="phone_verification" />
+              <Checkbox 
+                id="phone_verification"
+                checked={data.influencerRequirements.verification.phoneVerification}
+                onCheckedChange={(checked) => {
+                  updateData('influencerRequirements', {
+                    verification: {
+                      ...data.influencerRequirements.verification,
+                      phoneVerification: !!checked
+                    }
+                  })
+                }}
+              />
               <label htmlFor="phone_verification" className="text-sm text-slate-700">
                 Phone number verification required
               </label>
@@ -862,13 +1353,35 @@ function InfluencerRequirementsStep({ data, updateData }: { data: CampaignData, 
           </div>
           <div className="space-y-3">
             <div className="flex items-center space-x-2">
-              <Checkbox id="payment_details" defaultChecked />
+              <Checkbox 
+                id="payment_details"
+                checked={data.influencerRequirements.verification.paymentDetails}
+                onCheckedChange={(checked) => {
+                  updateData('influencerRequirements', {
+                    verification: {
+                      ...data.influencerRequirements.verification,
+                      paymentDetails: !!checked
+                    }
+                  })
+                }}
+              />
               <label htmlFor="payment_details" className="text-sm text-slate-700">
                 Valid payment details (Mpesa/Bank)
               </label>
             </div>
             <div className="flex items-center space-x-2">
-              <Checkbox id="tax_information" />
+              <Checkbox 
+                id="tax_information"
+                checked={data.influencerRequirements.verification.taxInformation}
+                onCheckedChange={(checked) => {
+                  updateData('influencerRequirements', {
+                    verification: {
+                      ...data.influencerRequirements.verification,
+                      taxInformation: !!checked
+                    }
+                  })
+                }}
+              />
               <label htmlFor="tax_information" className="text-sm text-slate-700">
                 Tax/business information (for high-value campaigns)
               </label>
@@ -893,7 +1406,16 @@ function InfluencerRequirementsStep({ data, updateData }: { data: CampaignData, 
               <div className="space-y-2">
                 {platforms.map((platform) => (
                   <div key={platform} className="flex items-center space-x-2">
-                    <Checkbox id={`oauth-${platform}`} defaultChecked />
+                    <Checkbox 
+                      id={`oauth-${platform}`}
+                      checked={data.influencerRequirements.platformVerification.includes(platform)}
+                      onCheckedChange={(checked) => {
+                        const newPlatformVerification = checked 
+                          ? [...data.influencerRequirements.platformVerification, platform]
+                          : data.influencerRequirements.platformVerification.filter(p => p !== platform)
+                        updateData('influencerRequirements', { platformVerification: newPlatformVerification })
+                      }}
+                    />
                     <label htmlFor={`oauth-${platform}`} className="text-sm text-blue-800">
                       {platform} connection required
                     </label>
@@ -901,6 +1423,181 @@ function InfluencerRequirementsStep({ data, updateData }: { data: CampaignData, 
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ApprovalSettingsStep({ data, updateData }: { data: CampaignData, updateData: Function }) {
+  const trustModes = [
+    {
+      value: 'strict',
+      label: 'Strict Approval',
+      description: 'All content must be reviewed and approved before posting',
+      icon: '🔒'
+    },
+    {
+      value: 'moderate',
+      label: 'Moderate Trust',
+      description: 'Trusted influencers can post directly, others need approval',
+      icon: '⚖️'
+    },
+    {
+      value: 'flexible',
+      label: 'Flexible Trust',
+      description: 'Influencers can post directly, just submit live links afterward',
+      icon: '🚀'
+    }
+  ]
+
+  return (
+    <div className="space-y-8">
+      <div className="text-center">
+        <h2 className="text-2xl font-bold text-slate-900 mb-2">Content Approval Settings</h2>
+        <p className="text-slate-600">
+          Configure how content is reviewed and approved for this campaign
+        </p>
+      </div>
+
+      {/* Trust Mode Selection */}
+      <div>
+        <h3 className="text-lg font-semibold text-slate-900 mb-4">Content Review Approach</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {trustModes.map((mode) => (
+            <div
+              key={mode.value}
+              className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                data.approvalSettings.trustMode === mode.value
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-slate-200 hover:border-slate-300'
+              }`}
+              onClick={() => {
+                updateData('approvalSettings', {
+                  trustMode: mode.value,
+                  requiresApproval: mode.value !== 'flexible'
+                })
+              }}
+            >
+              <div className="text-center">
+                <div className="text-2xl mb-2">{mode.icon}</div>
+                <h4 className="font-semibold text-slate-900 mb-2">{mode.label}</h4>
+                <p className="text-sm text-slate-600">{mode.description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Detailed Settings */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        
+        {/* Approval Requirements */}
+        <div className="space-y-6">
+          <div>
+            <h4 className="font-medium text-slate-900 mb-3">Approval Requirements</h4>
+            <div className="space-y-3">
+              <div className="flex items-center space-x-3">
+                <Checkbox
+                  id="requires_approval"
+                  checked={data.approvalSettings.requiresApproval}
+                  onCheckedChange={(checked) => {
+                    updateData('approvalSettings', { requiresApproval: !!checked })
+                  }}
+                />
+                <div>
+                  <label htmlFor="requires_approval" className="text-sm font-medium text-slate-700">
+                    Content requires approval before posting
+                  </label>
+                  <p className="text-xs text-slate-500">
+                    When enabled, all content must be reviewed and approved by your team
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Approval Instructions */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Approval Instructions (Optional)
+            </label>
+            <textarea
+              placeholder="Provide specific guidelines for content approval, brand voice requirements, or key messaging points..."
+              value={data.approvalSettings.approvalInstructions}
+              onChange={(e) => updateData('approvalSettings', { approvalInstructions: e.target.value })}
+              className="w-full h-24 p-3 border border-slate-200 rounded-md resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              maxLength={500}
+            />
+            <p className="text-xs text-slate-500 mt-1">
+              {data.approvalSettings.approvalInstructions.length}/500 characters
+            </p>
+          </div>
+        </div>
+
+        {/* Trust & Performance */}
+        <div className="space-y-6">
+          <div>
+            <h4 className="font-medium text-slate-900 mb-3">Performance Focus</h4>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start space-x-3">
+                <div className="text-blue-500 mt-0.5">📊</div>
+                <div>
+                  <h5 className="font-medium text-blue-900 mb-2">Metrics-Driven Approach</h5>
+                  <p className="text-sm text-blue-800 mb-3">
+                    Regardless of approval settings, all influencers must submit live post URLs for performance tracking.
+                  </p>
+                  <ul className="text-sm text-blue-700 space-y-1">
+                    <li>• Real-time engagement monitoring</li>
+                    <li>• ROI calculations and reporting</li>
+                    <li>• Performance-based payment triggers</li>
+                    <li>• Campaign analytics dashboard</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="font-medium text-slate-900 mb-3">Content Workflow</h4>
+            <div className="space-y-3">
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                <div className="text-sm text-slate-700">
+                  <strong>Step 1:</strong> Influencer creates content
+                  {data.approvalSettings.requiresApproval ? (
+                    <>
+                      <br /><strong>Step 2:</strong> Brand reviews and approves content
+                      <br /><strong>Step 3:</strong> Influencer posts on social media
+                      <br /><strong>Step 4:</strong> Influencer submits live post URLs
+                      <br /><strong>Step 5:</strong> Performance tracking begins
+                    </>
+                  ) : (
+                    <>
+                      <br /><strong>Step 2:</strong> Influencer posts on social media
+                      <br /><strong>Step 3:</strong> Influencer submits live post URLs
+                      <br /><strong>Step 4:</strong> Performance tracking begins
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Summary */}
+      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+        <div className="flex items-start space-x-3">
+          <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+          <div>
+            <h4 className="font-medium text-green-900 mb-2">Campaign Ready</h4>
+            <p className="text-sm text-green-800">
+              {data.approvalSettings.requiresApproval 
+                ? 'Your campaign is configured with content approval requirements. Influencers will submit content for review before posting.'
+                : 'Your campaign is configured for direct posting. Influencers can post immediately and submit live URLs for tracking.'
+              }
+            </p>
           </div>
         </div>
       </div>
