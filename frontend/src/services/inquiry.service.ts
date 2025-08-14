@@ -146,7 +146,7 @@ class InquiryService {
   // Helper method to get status color
   getStatusColor(status: string): string {
     switch (status.toLowerCase()) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800'
+      case 'pending': return 'bg-yellow-100 text-yellow-900'
       case 'contacted': return 'bg-blue-100 text-blue-800'
       case 'negotiating': return 'bg-purple-100 text-purple-800'
       case 'accepted': return 'bg-green-100 text-green-800'

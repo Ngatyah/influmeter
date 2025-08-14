@@ -299,7 +299,7 @@ export default function NotificationSystem({ userRole }: NotificationSystemProps
                                 </Badge>
                               )}
                               {notification.metadata.amount && (
-                                <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800">
+                                <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-900">
                                   {notification.metadata.amount}
                                 </Badge>
                               )}

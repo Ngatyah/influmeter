@@ -205,6 +205,7 @@ export class CampaignsService {
             brandProfile: true,
           },
         },
+        briefFiles: true,
         applications: {
           include: {
             influencer: {
@@ -270,6 +271,39 @@ export class CampaignsService {
     }
 
     return convertBigIntsToNumbers(campaign);
+  }
+
+  // Upload brief files to campaign
+  async uploadBriefFiles(campaignId: string, brandId: string, files: Array<{ fileName: string, fileUrl: string, fileType: string, fileSize?: number }>) {
+    // Check if campaign belongs to the brand
+    const existingCampaign = await this.prisma.campaign.findUnique({
+      where: { id: campaignId },
+    });
+
+    if (!existingCampaign) {
+      throw new NotFoundException('Campaign not found');
+    }
+
+    if (existingCampaign.brandId !== brandId) {
+      throw new ForbiddenException('You can only add files to your own campaigns');
+    }
+
+    // Create campaign files
+    const createdFiles = await Promise.all(
+      files.map(file => 
+        this.prisma.campaignFile.create({
+          data: {
+            campaignId,
+            fileName: file.fileName,
+            fileUrl: file.fileUrl,
+            fileType: file.fileType,
+            fileSize: file.fileSize ? BigInt(file.fileSize) : null,
+          },
+        })
+      )
+    );
+
+    return convertBigIntsToNumbers(createdFiles);
   }
 
   // Update campaign

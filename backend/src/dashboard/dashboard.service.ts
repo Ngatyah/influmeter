@@ -553,4 +553,68 @@ const spent = totalSpent._sum.amount ? Number(totalSpent._sum.amount) : 0;
       engagementRate: reach > 0 ? (engagement / reach * 100) : 0,
     };
   }
+
+  async getBrandPendingActions(userId: string) {
+    const [pendingContentCount, pendingApplicationsCount] = await Promise.all([
+      // Count pending content submissions
+      this.prisma.contentSubmission.count({
+        where: {
+          campaign: {
+            brandId: userId,
+          },
+          status: 'PENDING',
+        },
+      }),
+
+      // Count pending campaign applications
+      this.prisma.campaignApplication.count({
+        where: {
+          campaign: {
+            brandId: userId,
+          },
+          status: 'PENDING',
+        },
+      }),
+    ]);
+
+    const actions = [];
+
+    // Add pending content submissions action
+    if (pendingContentCount > 0) {
+      actions.push({
+        id: 'content-submissions',
+        text: `${pendingContentCount} content submission${pendingContentCount === 1 ? '' : 's'} to review`,
+        action: 'Review',
+        urgent: pendingContentCount > 3,
+        actionUrl: '/content/approvals',
+        count: pendingContentCount,
+      });
+    }
+
+    // Add pending applications action
+    if (pendingApplicationsCount > 0) {
+      actions.push({
+        id: 'campaign-applications',
+        text: `${pendingApplicationsCount} campaign application${pendingApplicationsCount === 1 ? '' : 's'}`,
+        action: 'View',
+        urgent: pendingApplicationsCount > 5,
+        actionUrl: '/campaigns',
+        count: pendingApplicationsCount,
+      });
+    }
+
+    // If no pending actions, add a placeholder
+    if (actions.length === 0) {
+      actions.push({
+        id: 'all-clear',
+        text: 'All caught up! No pending actions.',
+        action: 'Create Campaign',
+        urgent: false,
+        actionUrl: '/campaigns/create',
+        count: 0,
+      });
+    }
+
+    return actions;
+  }
 }

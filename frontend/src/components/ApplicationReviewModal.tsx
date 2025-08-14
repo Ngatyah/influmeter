@@ -56,7 +56,7 @@ export default function ApplicationReviewModal({
                 </div>
                 <Badge 
                   className={`flex items-center space-x-1 ${
-                    application.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                    application.status === 'PENDING' ? 'bg-yellow-100 text-yellow-900' :
                     application.status === 'ACCEPTED' ? 'bg-green-100 text-green-800' :
                     'bg-red-100 text-red-800'
                   }`}

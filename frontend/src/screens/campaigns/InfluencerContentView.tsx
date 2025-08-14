@@ -480,7 +480,7 @@ function ContentCard({
   const getStatusBadge = (status: ContentSubmission['status']) => {
     switch (status) {
       case 'PENDING':
-        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">🕒 Pending</Badge>
+        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-900">🕒 Pending</Badge>
       case 'APPROVED':
         return <Badge variant="secondary" className="bg-blue-100 text-blue-800">✅ Approved</Badge>
       case 'COMPLETED':

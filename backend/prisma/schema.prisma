@@ -221,6 +221,7 @@ model Campaign {
   requiresApproval       Boolean        @default(true) @map("requires_approval")
   autoApproveInfluencers String[]       @default([]) @map("auto_approve_influencers")
   approvalInstructions   String?        @map("approval_instructions")
+  contentBrief           String?        @map("content_brief")
   
   createdAt              DateTime       @default(now()) @map("created_at")
   updatedAt              DateTime       @updatedAt @map("updated_at")
@@ -231,6 +232,7 @@ model Campaign {
   participants         CampaignParticipant[]
   contentSubmissions   ContentSubmission[]
   analytics            CampaignAnalytics?
+  briefFiles           CampaignFile[]
 
   @@map("campaigns")
 }
@@ -308,6 +310,20 @@ model ContentFile {
   content ContentSubmission @relation(fields: [contentId], references: [id], onDelete: Cascade)
 
   @@map("content_files")
+}
+
+model CampaignFile {
+  id           String   @id @default(uuid())
+  campaignId   String   @map("campaign_id")
+  fileName     String   @map("file_name")
+  fileUrl      String   @map("file_url")
+  fileType     String   @map("file_type")
+  fileSize     BigInt?  @map("file_size")
+  uploadedAt   DateTime @default(now()) @map("uploaded_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@map("campaign_files")
 }
 
 model ContentPerformance {

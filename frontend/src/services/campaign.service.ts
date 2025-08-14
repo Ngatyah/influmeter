@@ -268,7 +268,7 @@ class CampaignService {
       budget: frontendData.budget?.total ? parseFloat(frontendData.budget.total) : undefined,
       startDate: frontendData.timeline?.startDate || undefined,
       endDate: frontendData.timeline?.endDate || undefined,
-      maxInfluencers: frontendData.influencerRequirements?.maxInfluencers ? parseInt(frontendData.influencerRequirements.maxInfluencers) : undefined,
+      maxInfluencers: frontendData.influencerRequirements?.maxParticipants ? parseInt(frontendData.influencerRequirements.maxParticipants) : undefined,
       targetCriteria: {
         targetAudience: frontendData.targetAudience,
         influencerRequirements: frontendData.influencerRequirements
@@ -276,10 +276,34 @@ class CampaignService {
       requirements: {
         contentBrief: frontendData.contentBrief
       },
+      contentBrief: frontendData.contentBrief?.description,
       // Approval Settings
       requiresApproval: frontendData.approvalSettings?.requiresApproval ?? true,
       autoApproveInfluencers: frontendData.approvalSettings?.autoApproveInfluencers || [],
       approvalInstructions: frontendData.approvalSettings?.approvalInstructions || ''
+    }
+  }
+
+  // Upload brief files for campaign
+  async uploadBriefFiles(campaignId: string, files: File[]): Promise<{
+    message: string
+    files: any[]
+    count: number
+  }> {
+    try {
+      // For now, we'll simulate file upload and create file records
+      // In a real implementation, you would upload files to a storage service first
+      const fileData = files.map(file => ({
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
+        fileUrl: URL.createObjectURL(file), // Temporary URL - should be replaced with actual upload
+      }))
+
+      const response = await apiClient.post(`/campaigns/${campaignId}/brief-files`, fileData)
+      return response.data
+    } catch (error) {
+      throw new Error(handleApiError(error))
     }
   }
 }

@@ -88,6 +88,33 @@ class UsersService {
     }
   }
 
+  // Update brand profile
+  async updateBrandProfile(data: Partial<BrandProfile>): Promise<User> {
+    try {
+      const response = await apiClient.put('/users/brand-profile', data)
+      return response.data
+    } catch (error) {
+      throw new Error(handleApiError(error))
+    }
+  }
+
+  // Upload brand logo
+  async uploadLogo(file: File): Promise<{ message: string, logoUrl: string, user: User }> {
+    try {
+      const formData = new FormData()
+      formData.append('logo', file)
+
+      const response = await apiClient.post('/users/upload-logo', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      })
+      return response.data
+    } catch (error) {
+      throw new Error(handleApiError(error))
+    }
+  }
+
   // Get user's social accounts
   async getSocialAccounts(): Promise<SocialAccount[]> {
     try {

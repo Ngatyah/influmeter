@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { convertBigIntsToNumbers } from '../common/utils/bigint.util';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class UsersService {
@@ -219,5 +221,68 @@ export class UsersService {
     };
 
     return convertBigIntsToNumbers(profileData);
+  }
+
+  async updateBrandProfile(userId: string, data: any) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        brandProfile: {
+          upsert: {
+            create: data,
+            update: data,
+          },
+        },
+      },
+      include: {
+        profile: true,
+        brandProfile: true,
+      },
+    });
+  }
+
+  async uploadLogo(userId: string, file: Express.Multer.File) {
+    if (!file) {
+      throw new Error('No file provided');
+    }
+
+    // Create uploads directory if it doesn't exist
+    const uploadsDir = path.join(process.cwd(), 'uploads', 'logos');
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    // Generate unique filename
+    const fileExtension = path.extname(file.originalname);
+    const fileName = `${userId}-${Date.now()}${fileExtension}`;
+    const filePath = path.join(uploadsDir, fileName);
+
+    // Save file
+    fs.writeFileSync(filePath, file.buffer);
+
+    // Update brand profile with logo URL
+    const logoUrl = `/uploads/logos/${fileName}`;
+    
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        brandProfile: {
+          upsert: {
+            create: { logoUrl },
+            update: { logoUrl },
+          },
+        },
+      },
+      include: {
+        profile: true,
+        brandProfile: true,
+      },
+    });
+
+    return {
+      message: 'Logo uploaded successfully',
+      logoUrl,
+      user: updatedUser
+    };
   }
 }

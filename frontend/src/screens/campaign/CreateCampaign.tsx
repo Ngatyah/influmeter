@@ -53,6 +53,7 @@ interface CampaignData {
     minFollowers: string
     maxFollowers: string
     engagementRate: string
+    maxParticipants: string
     niches: string[]
     location: string[]
     platformFollowers: { [platform: string]: string }
@@ -136,6 +137,7 @@ export default function CreateCampaign() {
       minFollowers: '',
       maxFollowers: '',
       engagementRate: '',
+      maxParticipants: '',
       niches: [],
       location: [],
       platformFollowers: {},
@@ -213,6 +215,17 @@ export default function CreateCampaign() {
       const createdCampaign = await campaignService.createCampaign(campaignPayload)
       console.log('Campaign saved as draft:', createdCampaign)
       
+      // Upload brief files if any were selected
+      if (campaignData.contentBrief.files && campaignData.contentBrief.files.length > 0) {
+        try {
+          const uploadResult = await campaignService.uploadBriefFiles(createdCampaign.id, campaignData.contentBrief.files)
+          console.log('Brief files uploaded:', uploadResult)
+        } catch (fileUploadError) {
+          console.error('Failed to upload brief files:', fileUploadError)
+          // Don't fail the entire campaign creation if file upload fails
+        }
+      }
+      
       // Show success toast and navigate
       success(
         'Draft Saved!', 
@@ -251,6 +264,17 @@ export default function CreateCampaign() {
       
       const createdCampaign = await campaignService.createCampaign(campaignPayload)
       console.log('Campaign launched:', createdCampaign)
+      
+      // Upload brief files if any were selected
+      if (campaignData.contentBrief.files && campaignData.contentBrief.files.length > 0) {
+        try {
+          const uploadResult = await campaignService.uploadBriefFiles(createdCampaign.id, campaignData.contentBrief.files)
+          console.log('Brief files uploaded:', uploadResult)
+        } catch (fileUploadError) {
+          console.error('Failed to upload brief files:', fileUploadError)
+          // Don't fail the entire campaign creation if file upload fails
+        }
+      }
       
       // Show success toast and navigate
       success(
@@ -1188,7 +1212,12 @@ function InfluencerRequirementsStep({ data, updateData }: { data: CampaignData, 
           <div className="space-y-3">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Maximum Participants</label>
-              <Input placeholder="25" className="h-10" />
+              <Input 
+                placeholder="25" 
+                value={data.influencerRequirements.maxParticipants}
+                onChange={(e) => updateData('influencerRequirements', { maxParticipants: e.target.value })}
+                className="h-10" 
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Application Deadline</label>

@@ -93,6 +93,14 @@ export class CreateCampaignDto {
   @IsString()
   @IsOptional()
   approvalInstructions?: string;
+
+  @ApiProperty({ 
+    description: 'Content brief description',
+    required: false
+  })
+  @IsString()
+  @IsOptional()
+  contentBrief?: string;
 }
 
 // Update Campaign DTO

@@ -124,7 +124,7 @@ export default function BrandAnalytics() {
     switch (performance) {
       case 'excellent': return <Badge className="bg-green-100 text-green-800">Excellent</Badge>
       case 'good': return <Badge className="bg-blue-100 text-blue-800">Good</Badge>
-      case 'average': return <Badge className="bg-yellow-100 text-yellow-800">Average</Badge>
+      case 'average': return <Badge className="bg-yellow-100 text-yellow-900">Average</Badge>
       default: return <Badge variant="secondary">-</Badge>
     }
   }

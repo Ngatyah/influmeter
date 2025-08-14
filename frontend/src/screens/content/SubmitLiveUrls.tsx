@@ -300,7 +300,7 @@ export default function SubmitLiveUrls() {
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Badge className={`${post.status === 'VERIFIED' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                      <Badge className={`${post.status === 'VERIFIED' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-900'}`}>
                         {post.status === 'VERIFIED' ? 'Verified' : 'Pending'}
                       </Badge>
                       <Button variant="ghost" size="sm" asChild>

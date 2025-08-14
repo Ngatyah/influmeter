@@ -133,6 +133,22 @@ export class CampaignsController {
     return this.campaignsService.update(id, req.user.id, updateCampaignDto);
   }
 
+  // Upload brief files to campaign (Brand only)
+  @Post(':id/brief-files')
+  @ApiOperation({ summary: 'Upload brief files to campaign' })
+  @ApiParam({ name: 'id', description: 'Campaign ID' })
+  @ApiResponse({ status: 200, description: 'Files uploaded successfully' })
+  @ApiResponse({ status: 404, description: 'Campaign not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  async uploadBriefFiles(@Req() req: any, @Param('id') id: string, @Body() files: Array<{ fileName: string, fileUrl: string, fileType: string, fileSize?: number }>) {
+    // Ensure only brands can upload files
+    if (req.user.role !== 'BRAND') {
+      throw new Error('Only brands can upload campaign files');
+    }
+
+    return this.campaignsService.uploadBriefFiles(id, req.user.id, files);
+  }
+
   // Update campaign status (Brand only)
   @Put(':id/status')
   @ApiOperation({ summary: 'Update campaign status' })

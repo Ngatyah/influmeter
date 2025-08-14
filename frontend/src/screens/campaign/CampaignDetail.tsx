@@ -47,7 +47,7 @@ const getStatusColor = (status: string) => {
     case 'active': return 'bg-green-100 text-green-800'
     case 'completed': return 'bg-blue-100 text-blue-800'
     case 'draft': return 'bg-gray-100 text-gray-800'
-    case 'paused': return 'bg-yellow-100 text-yellow-800'
+    case 'paused': return 'bg-yellow-100 text-yellow-900'
     case 'cancelled': return 'bg-red-100 text-red-800'
     default: return 'bg-gray-100 text-gray-800'
   }
@@ -511,7 +511,7 @@ function ApplicationsTab({ applications, loading, onStatusUpdate, onRefresh }: {
 
   const getApplicationStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800'
+      case 'pending': return 'bg-yellow-100 text-yellow-900'
       case 'accepted': return 'bg-green-100 text-green-800'
       case 'rejected': return 'bg-red-100 text-red-800'
       default: return 'bg-gray-100 text-gray-800'
@@ -674,7 +674,7 @@ function OverviewTab({ campaign }: { campaign: any }) {
               <div>
                 <p className="text-sm text-slate-600">Influencers Joined</p>
                 <p className="text-2xl font-bold text-slate-900">
-                  {campaign._count?.participants || 0}/{campaign.maxInfluencers || '∞'}
+                  {campaign._count?.participants || 0}/{campaign.maxInfluencers && campaign.maxInfluencers > 0 ? campaign.maxInfluencers : '∞'}
                 </p>
               </div>
               <Users className="w-8 h-8 text-slate-400" />
@@ -926,7 +926,7 @@ function InfluencersTab({ campaignId, participants, loading, onRefresh }: {
                 <div className="flex items-center space-x-3">
                   <Badge 
                     variant={influencer.status === 'active' ? 'default' : 'secondary'}
-                    className={influencer.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}
+                    className={influencer.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-900'}
                   >
                     {influencer.status}
                   </Badge>
@@ -1050,7 +1050,7 @@ function ContentTab({ contentSubmissions, loading, onStatusUpdate, onRefresh }: 
                   <Badge 
                     className={
                       submission.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
-                      submission.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                      submission.status === 'PENDING' ? 'bg-yellow-100 text-yellow-900' :
                       submission.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
                       submission.status === 'COMPLETED' ? 'bg-blue-100 text-blue-800' :
                       'bg-gray-100 text-gray-800'
@@ -1235,7 +1235,7 @@ function ContentDetailModal({ content, onClose, onStatusChange }: {
                   )}
                   <Badge className={`
                     ${content.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
-                      content.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                      content.status === 'PENDING' ? 'bg-yellow-100 text-yellow-900' :
                       content.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
                       content.status === 'COMPLETED' ? 'bg-blue-100 text-blue-800' :
                       'bg-gray-100 text-gray-800'} 
@@ -1635,7 +1635,7 @@ function ContentDetailModal({ content, onClose, onStatusChange }: {
                       <p className="text-sm text-slate-600 mb-1">Current Status</p>
                       <Badge className={`
                         ${content.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
-                          content.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                          content.status === 'PENDING' ? 'bg-yellow-100 text-yellow-900' :
                           content.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
                           content.status === 'COMPLETED' ? 'bg-blue-100 text-blue-800' :
                           'bg-gray-100 text-gray-800'} 

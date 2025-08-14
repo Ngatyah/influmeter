@@ -189,7 +189,9 @@ export default function CampaignDetailInfluencer() {
                   </div>
                   <div className="text-center p-3 bg-purple-50 rounded-lg">
                     <Users className="w-6 h-6 text-purple-500 mx-auto mb-1" />
-                    <p className="text-lg font-bold text-purple-600">{campaign?._count?.participants || 0}/50</p>
+                    <p className="text-lg font-bold text-purple-600">
+                      {campaign?._count?.participants || 0}/{campaign?.maxInfluencers && campaign.maxInfluencers > 0 ? campaign.maxInfluencers : '∞'}
+                    </p>
                     <p className="text-xs text-slate-600">Participants</p>
                   </div>
                   <div className="text-center p-3 bg-orange-50 rounded-lg">
@@ -215,52 +217,129 @@ export default function CampaignDetailInfluencer() {
                   <TabsContent value="brief" className="mt-6">
                     <div className="prose prose-sm max-w-none">
                       <h3 className="text-lg font-semibold mb-4">Campaign Brief</h3>
-                      <div className="whitespace-pre-line text-slate-700">
-                        {campaign?.description || 'Full campaign brief will be available after application approval.'}
+                      <div className="space-y-4">
+                        <div>
+                          <h4 className="font-medium text-slate-900 mb-2">Campaign Overview</h4>
+                          <div className="whitespace-pre-line text-slate-700">
+                            {campaign?.description || 'Campaign description not available.'}
+                          </div>
+                        </div>
+                        {campaign?.contentBrief && (
+                          <div>
+                            <h4 className="font-medium text-slate-900 mb-2">Content Brief</h4>
+                            <div className="whitespace-pre-line text-slate-700">
+                              {campaign.contentBrief}
+                            </div>
+                          </div>
+                        )}
+                        {!campaign?.contentBrief && !campaign?.description && (
+                          <p className="text-slate-500">Detailed brief will be available after application approval.</p>
+                        )}
                       </div>
                     </div>
                   </TabsContent>
                   
                   <TabsContent value="requirements" className="mt-6">
                     <div className="space-y-6">
-                      <div>
-                        <h4 className="font-semibold text-slate-900 mb-3">Audience Requirements</h4>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <span className="text-sm text-slate-600">Minimum Followers:</span>
-                            <Badge className="ml-2">5K+</Badge>
+                      {/* Target Audience */}
+                      {campaign?.targetCriteria?.targetAudience && (
+                        <div>
+                          <h4 className="font-semibold text-slate-900 mb-3">Target Audience</h4>
+                          <div className="grid grid-cols-2 gap-4">
+                            {campaign.targetCriteria.targetAudience.ageRange && (
+                              <div>
+                                <span className="text-sm text-slate-600">Age Range:</span>
+                                <Badge className="ml-2">{campaign.targetCriteria.targetAudience.ageRange}</Badge>
+                              </div>
+                            )}
+                            {campaign.targetCriteria.targetAudience.gender && (
+                              <div>
+                                <span className="text-sm text-slate-600">Gender:</span>
+                                <Badge className="ml-2">{campaign.targetCriteria.targetAudience.gender}</Badge>
+                              </div>
+                            )}
+                            {campaign.targetCriteria.targetAudience.location && campaign.targetCriteria.targetAudience.location.length > 0 && (
+                              <div className="col-span-2">
+                                <span className="text-sm text-slate-600">Locations:</span>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {campaign.targetCriteria.targetAudience.location.map((loc: string, index: number) => (
+                                    <Badge key={index} variant="outline" className="text-xs">{loc}</Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {campaign.targetCriteria.targetAudience.interests && campaign.targetCriteria.targetAudience.interests.length > 0 && (
+                              <div className="col-span-2">
+                                <span className="text-sm text-slate-600">Interests:</span>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {campaign.targetCriteria.targetAudience.interests.map((interest: string, index: number) => (
+                                    <Badge key={index} className="bg-blue-50 text-blue-700 text-xs">{interest}</Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
+                        </div>
+                      )}
+
+                      {/* Influencer Requirements */}
+                      {campaign?.targetCriteria?.influencerRequirements && (
+                        <>
                           <div>
-                            <span className="text-sm text-slate-600">Demographics:</span>
-                            <span className="ml-2 text-sm text-slate-900">All demographics welcome</span>
+                            <h4 className="font-semibold text-slate-900 mb-3">Follower Requirements</h4>
+                            <div className="grid grid-cols-2 gap-4">
+                              {campaign.targetCriteria.influencerRequirements.minFollowers && (
+                                <div>
+                                  <span className="text-sm text-slate-600">Minimum Followers:</span>
+                                  <Badge className="ml-2">{campaign.targetCriteria.influencerRequirements.minFollowers}</Badge>
+                                </div>
+                              )}
+                              {campaign.targetCriteria.influencerRequirements.maxFollowers && (
+                                <div>
+                                  <span className="text-sm text-slate-600">Maximum Followers:</span>
+                                  <Badge className="ml-2">{campaign.targetCriteria.influencerRequirements.maxFollowers}</Badge>
+                                </div>
+                              )}
+                              {campaign.targetCriteria.influencerRequirements.engagementRate && (
+                                <div>
+                                  <span className="text-sm text-slate-600">Min Engagement Rate:</span>
+                                  <Badge className="ml-2">{campaign.targetCriteria.influencerRequirements.engagementRate}%</Badge>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </div>
 
-                      <div>
-                        <h4 className="font-semibold text-slate-900 mb-3">Platform Requirements</h4>
-                        <div className="flex flex-wrap gap-2">
-                          <Badge variant="secondary">Instagram</Badge>
-                          <Badge variant="secondary">TikTok</Badge>
-                        </div>
-                      </div>
+                          {campaign.targetCriteria.influencerRequirements.niches && campaign.targetCriteria.influencerRequirements.niches.length > 0 && (
+                            <div>
+                              <h4 className="font-semibold text-slate-900 mb-3">Required Niches</h4>
+                              <div className="flex flex-wrap gap-2">
+                                {campaign.targetCriteria.influencerRequirements.niches.map((niche: string, index: number) => (
+                                  <Badge key={index} className="bg-blue-50 text-blue-700">{niche}</Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
 
-                      <div>
-                        <h4 className="font-semibold text-slate-900 mb-3">Content Types</h4>
-                        <div className="flex flex-wrap gap-2">
-                          <Badge variant="outline">Posts</Badge>
-                          <Badge variant="outline">Stories</Badge>
-                          <Badge variant="outline">Reels</Badge>
-                        </div>
-                      </div>
+                          {campaign.targetCriteria.influencerRequirements.contentTypes && campaign.targetCriteria.influencerRequirements.contentTypes.length > 0 && (
+                            <div>
+                              <h4 className="font-semibold text-slate-900 mb-3">Required Content Types</h4>
+                              <div className="flex flex-wrap gap-2">
+                                {campaign.targetCriteria.influencerRequirements.contentTypes.map((type: string, index: number) => (
+                                  <Badge key={index} variant="outline">{type}</Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
 
-                      <div>
-                        <h4 className="font-semibold text-slate-900 mb-3">Niches</h4>
-                        <div className="flex flex-wrap gap-2">
-                          <Badge className="bg-blue-50 text-blue-700">Lifestyle</Badge>
-                          <Badge className="bg-blue-50 text-blue-700">General</Badge>
+                      {/* Fallback message if no requirements */}
+                      {!campaign?.targetCriteria?.targetAudience && !campaign?.targetCriteria?.influencerRequirements && (
+                        <div className="text-center py-8">
+                          <p className="text-slate-500">No specific requirements defined for this campaign.</p>
+                          <p className="text-xs text-slate-400">All qualified influencers are welcome to apply</p>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </TabsContent>
                   
@@ -287,6 +366,32 @@ export default function CampaignDetailInfluencer() {
                         </div>
 
                         <div>
+                          <h4 className="font-semibold text-slate-900">Content Approval Process</h4>
+                          <ul className="mt-2 space-y-1 text-sm text-slate-600">
+                            {campaign?.requiresApproval ? (
+                              <>
+                                <li>• ✅ Content approval required before posting</li>
+                                <li>• 📋 Submit content drafts for brand review</li>
+                                <li>• ⏰ Allow 24-48 hours for approval process</li>
+                                <li>• 🔄 Revisions may be requested</li>
+                              </>
+                            ) : (
+                              <>
+                                <li>• 🚀 No pre-approval required - post directly</li>
+                                <li>• 📝 Submit live post URLs after publishing</li>
+                                <li>• 📊 Performance tracking begins immediately</li>
+                              </>
+                            )}
+                          </ul>
+                          {campaign?.approvalInstructions && (
+                            <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                              <p className="text-sm text-blue-800 font-medium">Brand Instructions:</p>
+                              <p className="text-sm text-blue-700 mt-1 whitespace-pre-line">{campaign.approvalInstructions}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        <div>
                           <h4 className="font-semibold text-slate-900">Usage Rights</h4>
                           <ul className="mt-2 space-y-1 text-sm text-slate-600">
                             <li>• Exclusivity: 30 days exclusivity for similar brands</li>
@@ -309,35 +414,37 @@ export default function CampaignDetailInfluencer() {
                   
                   <TabsContent value="assets" className="mt-6">
                     <div className="space-y-4">
-                      <p className="text-sm text-slate-600">Brand assets will be available after application approval:</p>
+                      <p className="text-sm text-slate-600">Campaign brief assets:</p>
                       
                       <div className="space-y-3">
-                        <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg opacity-50">
-                          <div className="flex items-center space-x-3">
-                            <FileText className="w-5 h-5 text-slate-400" />
-                            <div>
-                              <p className="text-sm font-medium text-slate-900">Brand Guidelines.pdf</p>
-                              <p className="text-xs text-slate-500">Available after approval</p>
+                        {campaign?.briefFiles && campaign.briefFiles.length > 0 ? (
+                          campaign.briefFiles.map((file: any) => (
+                            <div key={file.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg">
+                              <div className="flex items-center space-x-3">
+                                <FileText className="w-5 h-5 text-slate-600" />
+                                <div>
+                                  <p className="text-sm font-medium text-slate-900">{file.fileName}</p>
+                                  <p className="text-xs text-slate-500">
+                                    {file.fileSize ? `${Math.round(file.fileSize / 1024)} KB` : ''} • 
+                                    Uploaded {formatSafeDate(file.uploadedAt)}
+                                  </p>
+                                </div>
+                              </div>
+                              <Button size="sm" variant="outline" asChild>
+                                <a href={file.fileUrl} target="_blank" rel="noopener noreferrer">
+                                  <Download className="w-3 h-3 mr-1" />
+                                  Download
+                                </a>
+                              </Button>
                             </div>
+                          ))
+                        ) : (
+                          <div className="text-center py-8">
+                            <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                            <p className="text-slate-500">No brief assets available yet</p>
+                            <p className="text-xs text-slate-400">Files will appear here once the brand uploads them</p>
                           </div>
-                          <Button size="sm" variant="outline" disabled>
-                            <Download className="w-3 h-3 mr-1" />
-                            Download
-                          </Button>
-                        </div>
-                        <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg opacity-50">
-                          <div className="flex items-center space-x-3">
-                            <FileText className="w-5 h-5 text-slate-400" />
-                            <div>
-                              <p className="text-sm font-medium text-slate-900">Product Images.zip</p>
-                              <p className="text-xs text-slate-500">Available after approval</p>
-                            </div>
-                          </div>
-                          <Button size="sm" variant="outline" disabled>
-                            <Download className="w-3 h-3 mr-1" />
-                            Download
-                          </Button>
-                        </div>
+                        )}
                       </div>
                     </div>
                   </TabsContent>
@@ -353,19 +460,41 @@ export default function CampaignDetailInfluencer() {
             <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
               <CardContent className="p-6">
                 <div className="text-center space-y-4">
-                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-                    <CheckCircle className="w-8 h-8 text-green-600" />
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto ${
+                    campaign?.maxInfluencers && campaign.maxInfluencers > 0 && (campaign._count?.participants || 0) >= campaign.maxInfluencers
+                      ? 'bg-red-100'
+                      : 'bg-green-100'
+                  }`}>
+                    {campaign?.maxInfluencers && campaign.maxInfluencers > 0 && (campaign._count?.participants || 0) >= campaign.maxInfluencers
+                      ? <AlertCircle className="w-8 h-8 text-red-600" />
+                      : <CheckCircle className="w-8 h-8 text-green-600" />
+                    }
                   </div>
                   <div>
-                    <h3 className="font-semibold text-slate-900">Campaign Open</h3>
-                    <p className="text-sm text-slate-600">8 spots remaining</p>
+                    <h3 className="font-semibold text-slate-900">
+                      {campaign?.maxInfluencers && campaign.maxInfluencers > 0 && (campaign._count?.participants || 0) >= campaign.maxInfluencers
+                        ? 'Campaign Full'
+                        : 'Campaign Open'
+                      }
+                    </h3>
+                    <p className="text-sm text-slate-600">
+                      {campaign?.maxInfluencers && campaign.maxInfluencers > 0 
+                        ? `${Math.max(0, campaign.maxInfluencers - (campaign._count?.participants || 0))} spots remaining`
+                        : 'Unlimited spots available'
+                      }
+                    </p>
                   </div>
                   <Button 
                     onClick={handleApply}
-                    disabled={hasApplied}
+                    disabled={hasApplied || (campaign?.maxInfluencers && campaign.maxInfluencers > 0 && (campaign._count?.participants || 0) >= campaign.maxInfluencers)}
                     className="w-full"
                   >
-                    {hasApplied ? 'Application Submitted' : 'Apply Now'}
+                    {hasApplied 
+                      ? 'Application Submitted' 
+                      : (campaign?.maxInfluencers && campaign.maxInfluencers > 0 && (campaign._count?.participants || 0) >= campaign.maxInfluencers)
+                        ? 'Campaign Full'
+                        : 'Apply Now'
+                    }
                   </Button>
                   {!hasApplied && (
                     <p className="text-xs text-slate-500">No application fee required</p>

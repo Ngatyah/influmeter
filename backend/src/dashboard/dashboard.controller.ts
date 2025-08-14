@@ -48,4 +48,10 @@ export class DashboardController {
     return this.dashboardService.getBrandAnalytics(req.user.id);
   }
 
+  @Get('brand/pending-actions')
+  @ApiOperation({ summary: 'Get brand pending actions' })
+  async getBrandPendingActions(@Req() req: any) {
+    return this.dashboardService.getBrandPendingActions(req.user.id);
+  }
+
 }

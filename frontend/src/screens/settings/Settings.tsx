@@ -37,6 +37,7 @@ import { useAppSelector, useAppDispatch } from '../../hooks/redux'
 import { logoutUser } from '../../store/slices/authSlice'
 import { portfolioManagementService, PortfolioItem, CreatePortfolioItemData } from '../../services/portfolio.service'
 import { packagesManagementService, InfluencerPackage, CreatePackageData } from '../../services/packages.service'
+import { usersService, User as UserType, BrandProfile } from '../../services/users.service'
 
 export default function Settings() {
   const navigate = useNavigate()
@@ -50,14 +51,14 @@ export default function Settings() {
   const [profileData, setProfileData] = useState({
     name: user?.name || '',
     email: user?.email || '',
-    bio: user?.bio || '',
-    phone: user?.phone || '',
-    website: user?.website || '',
+    bio: '',
+    phone: '',
+    website: '',
     socialLinks: {
-      instagram: user?.socialLinks?.instagram || '',
-      youtube: user?.socialLinks?.youtube || '',
-      twitter: user?.socialLinks?.twitter || '',
-      tiktok: user?.socialLinks?.tiktok || ''
+      instagram: '',
+      youtube: '',
+      twitter: '',
+      tiktok: ''
     }
   })
 
@@ -66,16 +67,16 @@ export default function Settings() {
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
-    twoFactorEnabled: user?.twoFactorEnabled || false
+    twoFactorEnabled: false
   })
 
   // Preferences state
   const [preferences, setPreferences] = useState({
     darkMode: localStorage.getItem('theme') === 'dark',
-    emailNotifications: user?.preferences?.emailNotifications || true,
-    pushNotifications: user?.preferences?.pushNotifications || true,
-    campaignUpdates: user?.preferences?.campaignUpdates || true,
-    paymentAlerts: user?.preferences?.paymentAlerts || true
+    emailNotifications: true,
+    pushNotifications: true,
+    campaignUpdates: true,
+    paymentAlerts: true
   })
 
   // Portfolio state (for influencers only)
@@ -90,6 +91,21 @@ export default function Settings() {
   const [showPackageForm, setShowPackageForm] = useState(false)
   const [editingPackage, setEditingPackage] = useState<InfluencerPackage | null>(null)
 
+  // Brand state (for brands only)
+  const [currentUser, setCurrentUser] = useState<UserType | null>(null)
+  const [brandData, setBrandData] = useState<BrandProfile>({
+    companyName: '',
+    industry: [],
+    website: '',
+    logoUrl: '',
+    description: '',
+    targetAudience: '',
+    brandValues: [],
+    marketingGoals: []
+  })
+  const [loading, setLoading] = useState(false)
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+
   const [packageForm, setPackageForm] = useState<CreatePackageData>({
     platform: 'Instagram',
     packageType: 'Post',
@@ -103,10 +119,84 @@ export default function Settings() {
   })
 
   const handleProfileUpdate = async () => {
-    // Simulate API call
-    console.log('Updating profile:', profileData)
-    setIsEditing(false)
-    // Show success notification
+    try {
+      setLoading(true)
+      
+      if (user?.role === 'BRAND') {
+        // Update brand profile
+        await usersService.updateProfile({
+          firstName: profileData.name.split(' ')[0],
+          lastName: profileData.name.split(' ').slice(1).join(' '),
+          phoneNumber: profileData.phone,
+          bio: profileData.bio
+        })
+        // Also update brand-specific data if needed
+        console.log('Brand profile updated successfully')
+      } else {
+        // Update regular profile
+        await usersService.updateProfile({
+          firstName: profileData.name.split(' ')[0],
+          lastName: profileData.name.split(' ').slice(1).join(' '),
+          phoneNumber: profileData.phone,
+          bio: profileData.bio
+        })
+      }
+      
+      setIsEditing(false)
+      // Reload user data
+      await loadCurrentUser()
+    } catch (error) {
+      console.error('Failed to update profile:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleBrandProfileUpdate = async () => {
+    try {
+      setLoading(true)
+      
+      let logoUrl = brandData.logoUrl
+
+      // First upload logo if a new file was selected
+      if (logoFile) {
+        const uploadResult = await usersService.uploadLogo(logoFile)
+        logoUrl = uploadResult.logoUrl
+      }
+
+      // Update both user profile and brand profile
+      await Promise.all([
+        // Update basic user profile (contact person, phone)
+        usersService.updateProfile({
+          firstName: profileData.name.split(' ')[0],
+          lastName: profileData.name.split(' ').slice(1).join(' '),
+          phoneNumber: profileData.phone,
+          bio: brandData.description
+        }),
+        // Update brand-specific profile (only if logoFile wasn't uploaded, as upload already updates it)
+        !logoFile && usersService.updateBrandProfile({
+          ...brandData,
+          logoUrl
+        })
+      ].filter(Boolean))
+      
+      // If logo was uploaded, the backend already updated brandData.logoUrl
+      if (!logoFile) {
+        setBrandData({...brandData, logoUrl})
+      }
+      
+      setIsEditing(false)
+      setLogoFile(null)
+      
+      // Reload user data
+      await loadCurrentUser()
+      
+      console.log('Brand profile updated successfully')
+    } catch (error) {
+      console.error('Failed to update brand profile:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handlePasswordChange = async () => {
@@ -169,8 +259,55 @@ export default function Settings() {
     }
   }
 
+  // Load current user data
+  const loadCurrentUser = async () => {
+    try {
+      setLoading(true)
+      const userData = await usersService.getCurrentUser()
+      setCurrentUser(userData)
+      
+      // Populate profile data from loaded user
+      if (userData.profile) {
+        setProfileData({
+          name: userData.profile.firstName && userData.profile.lastName 
+            ? `${userData.profile.firstName} ${userData.profile.lastName}`
+            : userData.profile.firstName || user?.name || '',
+          email: userData.email || '',
+          bio: userData.profile.bio || '',
+          phone: userData.profile.phoneNumber || '',
+          website: '',
+          socialLinks: {
+            instagram: '',
+            youtube: '',
+            twitter: '',
+            tiktok: ''
+          }
+        })
+      }
+      
+      // Populate brand data if user is a brand
+      if (user?.role === 'BRAND' && userData.brandProfile) {
+        setBrandData({
+          companyName: userData.brandProfile.companyName || '',
+          industry: Array.isArray(userData.brandProfile.industry) ? userData.brandProfile.industry : [],
+          website: userData.brandProfile.website || '',
+          logoUrl: userData.brandProfile.logoUrl || '',
+          description: userData.brandProfile.description || '',
+          targetAudience: userData.brandProfile.targetAudience || '',
+          brandValues: Array.isArray(userData.brandProfile.brandValues) ? userData.brandProfile.brandValues : [],
+          marketingGoals: Array.isArray(userData.brandProfile.marketingGoals) ? userData.brandProfile.marketingGoals : []
+        })
+      }
+    } catch (error) {
+      console.error('Failed to load current user:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Load data on component mount
   useEffect(() => {
+    loadCurrentUser()
     if (user?.role === 'INFLUENCER') {
       loadPortfolio()
       loadPackages()
@@ -292,28 +429,53 @@ export default function Settings() {
                   <CardTitle>Profile Information</CardTitle>
                   <Button
                     variant={isEditing ? "default" : "outline"}
-                    onClick={() => isEditing ? handleProfileUpdate() : setIsEditing(true)}
+                    onClick={() => isEditing ? (user?.role === 'BRAND' ? handleBrandProfileUpdate() : handleProfileUpdate()) : setIsEditing(true)}
+                    disabled={loading}
                   >
-                    {isEditing ? 'Save Changes' : 'Edit Profile'}
+                    {loading ? 'Updating...' : isEditing ? 'Save Changes' : 'Edit Profile'}
                   </Button>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Avatar */}
+                  {/* Avatar/Logo */}
                   <div className="flex items-center space-x-4">
                     <div className="relative">
                       <img
-                        src={user?.avatar || '/api/placeholder/80/80'}
-                        alt="Profile"
-                        className="w-20 h-20 rounded-full object-cover"
+                        src={
+                          user?.role === 'BRAND' 
+                            ? (brandData.logoUrl || currentUser?.brandProfile?.logoUrl || '/api/placeholder/80/80')
+                            : (user?.avatar || currentUser?.profile?.avatar || '/api/placeholder/80/80')
+                        }
+                        alt={user?.role === 'BRAND' ? 'Company Logo' : 'Profile'}
+                        className={`w-20 h-20 object-cover ${user?.role === 'BRAND' ? 'rounded-lg' : 'rounded-full'}`}
                       />
                       {isEditing && (
-                        <button className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/60 transition-colors">
+                        <label className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/60 transition-colors cursor-pointer">
                           <Camera className="w-5 h-5" />
-                        </button>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file && user?.role === 'BRAND') {
+                                setLogoFile(file)
+                                setBrandData({...brandData, logoUrl: URL.createObjectURL(file)})
+                              }
+                            }}
+                          />
+                        </label>
                       )}
                     </div>
                     <div>
-                      <h3 className="font-semibold text-slate-900">{user?.name}</h3>
+                      <h3 className="font-semibold text-slate-900">
+                        {user?.role === 'BRAND' 
+                          ? (brandData.companyName || currentUser?.brandProfile?.companyName || 'Company Name')
+                          : (currentUser?.profile?.firstName && currentUser?.profile?.lastName 
+                              ? `${currentUser.profile.firstName} ${currentUser.profile.lastName}`
+                              : user?.name || 'User Name'
+                            )
+                        }
+                      </h3>
                       <p className="text-sm text-slate-600 capitalize">{user?.role}</p>
                       {user?.verified && (
                         <Badge className="mt-1 bg-blue-100 text-blue-800">
@@ -321,70 +483,195 @@ export default function Settings() {
                           Verified
                         </Badge>
                       )}
+                      {user?.role === 'BRAND' && brandData.industry && Array.isArray(brandData.industry) && brandData.industry.length > 0 && (
+                        <p className="text-xs text-slate-500 mt-1">{brandData.industry.join(', ')}</p>
+                      )}
                     </div>
                   </div>
 
                   {/* Basic Info */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Full Name
-                      </label>
-                      <Input
-                        value={profileData.name}
-                        onChange={(e) => setProfileData({...profileData, name: e.target.value})}
-                        disabled={!isEditing}
-                      />
+                  {user?.role === 'BRAND' ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Company Name
+                        </label>
+                        <Input
+                          value={brandData.companyName}
+                          onChange={(e) => setBrandData({...brandData, companyName: e.target.value})}
+                          disabled={!isEditing}
+                          placeholder="Your Company Name"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Website
+                        </label>
+                        <Input
+                          value={brandData.website}
+                          onChange={(e) => setBrandData({...brandData, website: e.target.value})}
+                          disabled={!isEditing}
+                          type="url"
+                          placeholder="https://your-website.com"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Email Address
+                        </label>
+                        <Input
+                          value={currentUser?.email || ''}
+                          disabled={true}
+                          type="email"
+                          className="bg-slate-50"
+                        />
+                        <p className="text-xs text-slate-500 mt-1">Email cannot be changed here</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Contact Person
+                        </label>
+                        <Input
+                          value={profileData.name}
+                          onChange={(e) => setProfileData({...profileData, name: e.target.value})}
+                          disabled={!isEditing}
+                          placeholder="Contact person name"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Phone Number
+                        </label>
+                        <Input
+                          value={profileData.phone}
+                          onChange={(e) => setProfileData({...profileData, phone: e.target.value})}
+                          disabled={!isEditing}
+                          type="tel"
+                          placeholder="+254 712 345 678"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Target Audience
+                        </label>
+                        <Input
+                          value={brandData.targetAudience}
+                          onChange={(e) => setBrandData({...brandData, targetAudience: e.target.value})}
+                          disabled={!isEditing}
+                          placeholder="e.g., Young adults 18-35"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Email Address
-                      </label>
-                      <Input
-                        value={profileData.email}
-                        onChange={(e) => setProfileData({...profileData, email: e.target.value})}
-                        disabled={!isEditing}
-                        type="email"
-                      />
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Full Name
+                        </label>
+                        <Input
+                          value={profileData.name}
+                          onChange={(e) => setProfileData({...profileData, name: e.target.value})}
+                          disabled={!isEditing}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Email Address
+                        </label>
+                        <Input
+                          value={profileData.email}
+                          onChange={(e) => setProfileData({...profileData, email: e.target.value})}
+                          disabled={!isEditing}
+                          type="email"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Phone Number
+                        </label>
+                        <Input
+                          value={profileData.phone}
+                          onChange={(e) => setProfileData({...profileData, phone: e.target.value})}
+                          disabled={!isEditing}
+                          type="tel"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Website
+                        </label>
+                        <Input
+                          value={profileData.website}
+                          onChange={(e) => setProfileData({...profileData, website: e.target.value})}
+                          disabled={!isEditing}
+                          type="url"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Phone Number
-                      </label>
-                      <Input
-                        value={profileData.phone}
-                        onChange={(e) => setProfileData({...profileData, phone: e.target.value})}
-                        disabled={!isEditing}
-                        type="tel"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Website
-                      </label>
-                      <Input
-                        value={profileData.website}
-                        onChange={(e) => setProfileData({...profileData, website: e.target.value})}
-                        disabled={!isEditing}
-                        type="url"
-                      />
-                    </div>
-                  </div>
+                  )}
 
-                  {/* Bio */}
+                  {/* Bio/Description */}
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Bio
+                      {user?.role === 'BRAND' ? 'Company Description' : 'Bio'}
                     </label>
                     <textarea
-                      value={profileData.bio}
-                      onChange={(e) => setProfileData({...profileData, bio: e.target.value})}
+                      value={user?.role === 'BRAND' ? brandData.description : profileData.bio}
+                      onChange={(e) => user?.role === 'BRAND' 
+                        ? setBrandData({...brandData, description: e.target.value})
+                        : setProfileData({...profileData, bio: e.target.value})
+                      }
                       disabled={!isEditing}
                       className="w-full h-24 p-3 border border-slate-200 rounded-md resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-slate-50"
                       maxLength={500}
+                      placeholder={user?.role === 'BRAND' ? 'Describe your company and what you do...' : 'Tell us about yourself...'}
                     />
-                    <p className="text-xs text-slate-500 mt-1">{profileData.bio.length}/500 characters</p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {(user?.role === 'BRAND' ? brandData.description : profileData.bio).length}/500 characters
+                    </p>
                   </div>
+
+                  {/* Brand-specific fields */}
+                  {user?.role === 'BRAND' && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Industry (comma-separated)
+                        </label>
+                        <Input
+                          value={Array.isArray(brandData.industry) ? brandData.industry.join(', ') : ''}
+                          onChange={(e) => setBrandData({...brandData, industry: e.target.value.split(',').map(s => s.trim()).filter(s => s)})}
+                          disabled={!isEditing}
+                          placeholder="e.g., Technology, Fashion, Food & Beverage"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-2">
+                            Brand Values (comma-separated)
+                          </label>
+                          <Input
+                            value={Array.isArray(brandData.brandValues) ? brandData.brandValues.join(', ') : ''}
+                            onChange={(e) => setBrandData({...brandData, brandValues: e.target.value.split(',').map(s => s.trim()).filter(s => s)})}
+                            disabled={!isEditing}
+                            placeholder="e.g., Quality, Innovation, Sustainability"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-2">
+                            Marketing Goals (comma-separated)
+                          </label>
+                          <Input
+                            value={Array.isArray(brandData.marketingGoals) ? brandData.marketingGoals.join(', ') : ''}
+                            onChange={(e) => setBrandData({...brandData, marketingGoals: e.target.value.split(',').map(s => s.trim()).filter(s => s)})}
+                            disabled={!isEditing}
+                            placeholder="e.g., Brand Awareness, Lead Generation, Sales"
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
 
                   {/* Social Links */}
                   <div>
