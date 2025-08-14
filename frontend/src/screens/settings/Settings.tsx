@@ -38,6 +38,7 @@ import { logoutUser } from '../../store/slices/authSlice'
 import { portfolioManagementService, PortfolioItem, CreatePortfolioItemData } from '../../services/portfolio.service'
 import { packagesManagementService, InfluencerPackage, CreatePackageData } from '../../services/packages.service'
 import { usersService, User as UserType, BrandProfile } from '../../services/users.service'
+import { getFullUrl } from '../../lib/api'
 
 export default function Settings() {
   const navigate = useNavigate()
@@ -54,6 +55,7 @@ export default function Settings() {
     bio: '',
     phone: '',
     website: '',
+    avatar: '',
     socialLinks: {
       instagram: '',
       youtube: '',
@@ -105,6 +107,7 @@ export default function Settings() {
   })
   const [loading, setLoading] = useState(false)
   const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
 
   const [packageForm, setPackageForm] = useState<CreatePackageData>({
     platform: 'Instagram',
@@ -127,18 +130,26 @@ export default function Settings() {
         await usersService.updateProfile({
           firstName: profileData.name.split(' ')[0],
           lastName: profileData.name.split(' ').slice(1).join(' '),
-          phoneNumber: profileData.phone,
+          phone: profileData.phone,
           bio: profileData.bio
         })
         // Also update brand-specific data if needed
         console.log('Brand profile updated successfully')
       } else {
+        // Handle influencer avatar upload if needed
+        let avatarUrl = currentUser?.profile?.avatarUrl
+        if (avatarFile) {
+          const uploadResult = await usersService.uploadAvatar(avatarFile)
+          avatarUrl = uploadResult.avatarUrl
+        }
+
         // Update regular profile
         await usersService.updateProfile({
           firstName: profileData.name.split(' ')[0],
           lastName: profileData.name.split(' ').slice(1).join(' '),
-          phoneNumber: profileData.phone,
-          bio: profileData.bio
+          phone: profileData.phone,
+          bio: profileData.bio,
+          avatarUrl: avatarUrl
         })
       }
       
@@ -170,7 +181,7 @@ export default function Settings() {
         usersService.updateProfile({
           firstName: profileData.name.split(' ')[0],
           lastName: profileData.name.split(' ').slice(1).join(' '),
-          phoneNumber: profileData.phone,
+          phone: profileData.phone,
           bio: brandData.description
         }),
         // Update brand-specific profile (only if logoFile wasn't uploaded, as upload already updates it)
@@ -274,7 +285,7 @@ export default function Settings() {
             : userData.profile.firstName || user?.name || '',
           email: userData.email || '',
           bio: userData.profile.bio || '',
-          phone: userData.profile.phoneNumber || '',
+          phone: userData.profile.phone || '',
           website: '',
           socialLinks: {
             instagram: '',
@@ -442,8 +453,8 @@ export default function Settings() {
                       <img
                         src={
                           user?.role === 'BRAND' 
-                            ? (brandData.logoUrl || currentUser?.brandProfile?.logoUrl || '/api/placeholder/80/80')
-                            : (user?.avatar || currentUser?.profile?.avatar || '/api/placeholder/80/80')
+                            ? getFullUrl(brandData.logoUrl || currentUser?.brandProfile?.logoUrl)
+                            : getFullUrl(user?.avatar || currentUser?.profile?.avatarUrl)
                         }
                         alt={user?.role === 'BRAND' ? 'Company Logo' : 'Profile'}
                         className={`w-20 h-20 object-cover ${user?.role === 'BRAND' ? 'rounded-lg' : 'rounded-full'}`}
@@ -457,9 +468,15 @@ export default function Settings() {
                             className="hidden"
                             onChange={(e) => {
                               const file = e.target.files?.[0]
-                              if (file && user?.role === 'BRAND') {
-                                setLogoFile(file)
-                                setBrandData({...brandData, logoUrl: URL.createObjectURL(file)})
+                              if (file) {
+                                if (user?.role === 'BRAND') {
+                                  setLogoFile(file)
+                                  setBrandData({...brandData, logoUrl: URL.createObjectURL(file)})
+                                } else {
+                                  // Handle influencer avatar upload
+                                  setAvatarFile(file)
+                                  setProfileData({...profileData, avatar: URL.createObjectURL(file)})
+                                }
                               }
                             }}
                           />

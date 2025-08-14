@@ -33,6 +33,7 @@ import { formatSafeDate } from '../../utils/dateUtils'
 import { profileService, InfluencerProfile as InfluencerProfileType } from '../../services/profile.service'
 import { inquiryService } from '../../services/inquiry.service'
 import ContactInfluencerModal from '../../components/ContactInfluencerModal'
+import { getFullUrl } from '../../lib/api'
 
 export default function InfluencerProfile() {
   const { id } = useParams()
@@ -156,7 +157,7 @@ export default function InfluencerProfile() {
         <div className="relative">
           <div className="h-64 bg-gradient-to-r from-purple-500 to-pink-500 relative overflow-hidden">
             <img 
-              src={influencer.coverImage} 
+              src={getFullUrl(influencer.coverImage)} 
               alt="Cover" 
               className="w-full h-full object-cover"
             />
@@ -168,7 +169,7 @@ export default function InfluencerProfile() {
               {/* Profile Picture */}
               <div className="relative mb-4 md:mb-0">
                 <img 
-                  src={influencer.avatar} 
+                  src={getFullUrl(influencer.avatar)} 
                   alt={influencer.name}
                   className="w-32 h-32 rounded-full border-4 border-white shadow-lg object-cover"
                 />
@@ -343,7 +344,7 @@ export default function InfluencerProfile() {
                     <Card key={work.id} className="shadow-lg border-0 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-shadow cursor-pointer">
                       <div className="relative aspect-square">
                         <img 
-                          src={work.thumbnail} 
+                          src={getFullUrl(work.thumbnail)} 
                           alt={work.title}
                           className="w-full h-full object-cover rounded-t-lg"
                         />

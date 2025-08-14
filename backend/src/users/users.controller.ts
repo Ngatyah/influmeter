@@ -67,4 +67,14 @@ export class UsersController {
     }
     return this.usersService.uploadLogo(req.user.id, file);
   }
+
+  @Post('upload-avatar')
+  @ApiOperation({ summary: 'Upload user avatar' })
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
+  @UseInterceptors(FileInterceptor('avatar'))
+  @ApiResponse({ status: 200, description: 'Avatar uploaded successfully' })
+  async uploadAvatar(@Req() req: any, @UploadedFile() file: Express.Multer.File) {
+    return this.usersService.uploadAvatar(req.user.id, file);
+  }
 }

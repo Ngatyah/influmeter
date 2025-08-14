@@ -23,6 +23,7 @@ import { Badge } from '../../components/ui/badge'
 import { Checkbox } from '../../components/ui/checkbox'
 import NotificationSystem from '../../components/notifications/NotificationSystem'
 import { discoveryService, Influencer, DiscoveryFilters } from '../../services/discovery.service'
+import { getFullUrl } from '../../lib/api'
 
 interface Filters {
   search: string
@@ -490,7 +491,7 @@ function InfluencerCard({ influencer, onToggleShortlist }: {
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center space-x-3">
             <img 
-              src={influencer.avatar} 
+              src={getFullUrl(influencer.avatar)} 
               alt={influencer.name}
               className="w-12 h-12 rounded-full object-cover"
             />
@@ -562,7 +563,7 @@ function InfluencerListItem({ influencer, onToggleShortlist }: {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <img 
-              src={influencer.avatar} 
+              src={getFullUrl(influencer.avatar)} 
               alt={influencer.name}
               className="w-16 h-16 rounded-full object-cover"
             />

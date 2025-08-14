@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { convertBigIntsToNumbers } from '../common/utils/bigint.util';
 import * as fs from 'fs';
@@ -263,25 +263,109 @@ export class UsersService {
     // Update brand profile with logo URL
     const logoUrl = `/uploads/logos/${fileName}`;
     
+    // Check if brand profile already exists - include profile for companyName fallback
+    const existingUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { 
+        brandProfile: true,
+        profile: true 
+      },
+    });
+
+    let updatedUser;
+
+    if (existingUser?.brandProfile) {
+      // Update existing brand profile
+      updatedUser = await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          brandProfile: {
+            update: { logoUrl },
+          },
+        },
+        include: {
+          profile: true,
+          brandProfile: true,
+        },
+      });
+    } else {
+      // Create new brand profile with required fields matching Prisma schema
+      updatedUser = await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          brandProfile: {
+            create: { 
+              companyName: existingUser?.profile?.firstName || 'Company Name',
+              industry: '', // String, not array
+              companySize: 'SMALL', // Required enum field
+              logoUrl,
+              description: '',
+              targetAudience: '',
+              brandValues: '', // String, not array
+              marketingGoals: [], // Array of strings, not plain string
+              website: '',
+              preferences: {} // JSON field
+            },
+          },
+        },
+        include: {
+          profile: true,
+          brandProfile: true,
+        },
+      });
+    }
+
+    return {
+      message: 'Logo uploaded successfully',
+      logoUrl,
+      user: updatedUser
+    };
+  }
+
+  async uploadAvatar(userId: string, file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('No avatar file provided');
+    }
+
+    // Create avatars directory if it doesn't exist
+    const avatarsDir = path.join(process.cwd(), 'uploads', 'avatars');
+    if (!fs.existsSync(avatarsDir)) {
+      fs.mkdirSync(avatarsDir, { recursive: true });
+    }
+
+    // Generate unique filename
+    const fileExt = path.extname(file.originalname);
+    const fileName = `${userId}-${Date.now()}${fileExt}`;
+    const filePath = path.join(avatarsDir, fileName);
+
+    // Save file
+    fs.writeFileSync(filePath, file.buffer);
+
+    // Update user profile with avatar URL
+    const avatarUrl = `/uploads/avatars/${fileName}`;
+    
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
       data: {
-        brandProfile: {
+        profile: {
           upsert: {
-            create: { logoUrl },
-            update: { logoUrl },
+            create: {
+              avatarUrl: avatarUrl,
+            },
+            update: {
+              avatarUrl: avatarUrl,
+            },
           },
         },
       },
       include: {
         profile: true,
-        brandProfile: true,
       },
     });
 
     return {
-      message: 'Logo uploaded successfully',
-      logoUrl,
+      message: 'Avatar uploaded successfully',
+      avatarUrl,
       user: updatedUser
     };
   }

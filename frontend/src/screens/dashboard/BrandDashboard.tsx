@@ -25,7 +25,8 @@ import { logoutUser } from '../../store/slices/authSlice'
 import { useNavigate } from 'react-router-dom'
 import NotificationSystem from '../../components/notifications/NotificationSystem'
 import { dashboardService } from '../../services/dashboard.service'
-import { apiClient } from '../../lib/api'
+import { apiClient, getFullUrl } from '../../lib/api'
+import { usersService } from '../../services/users.service'
 
 // Enhanced backend response type
 interface BrandDashboardBackendData {
@@ -82,6 +83,7 @@ export default function BrandDashboard() {
   const [analyticsData, setAnalyticsData] = useState<BrandAnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [currentUser, setCurrentUser] = useState<any>(null)
   
   const handleLogout = () => {
     dispatch(logoutUser())
@@ -97,14 +99,16 @@ export default function BrandDashboard() {
       setLoading(true)
       setError(null)
       
-      // Load both overview and analytics data in parallel
-      const [overviewResponse, analyticsResponse] = await Promise.all([
+      // Load overview, analytics, and user data in parallel
+      const [overviewResponse, analyticsResponse, userResponse] = await Promise.all([
         apiClient.get('/dashboard/brand/overview'),
-        apiClient.get('/dashboard/brand/analytics')
+        apiClient.get('/dashboard/brand/analytics'),
+        usersService.getCurrentUser()
       ])
       
       setDashboardData(overviewResponse.data)
       setAnalyticsData(analyticsResponse.data)
+      setCurrentUser(userResponse)
       
       // Try to load active campaigns separately using the correct endpoint
       try {
@@ -330,13 +334,17 @@ export default function BrandDashboard() {
             {/* User profile section */}
             <div className="flex items-center space-x-3">
               <img 
-                src="/api/placeholder/40/40" 
-                alt="Profile"
-                className="w-8 h-8 rounded-full object-cover"
+                src={getFullUrl(currentUser?.brandProfile?.logoUrl)} 
+                alt="Brand Logo"
+                className="w-8 h-8 rounded-lg object-cover"
               />
               <div className="hidden sm:block">
-                <p className="text-sm font-medium text-slate-900">Brand Manager</p>
-                <p className="text-xs text-slate-600">brand@company.com</p>
+                <p className="text-sm font-medium text-slate-900">
+                  {currentUser?.brandProfile?.companyName || 'Brand Manager'}
+                </p>
+                <p className="text-xs text-slate-600">
+                  {currentUser?.email || 'brand@company.com'}
+                </p>
               </div>
             </div>
           </div>
@@ -624,7 +632,7 @@ export default function BrandDashboard() {
                       <div className="flex items-center space-x-3 min-w-0 flex-1">
                         <div className="relative flex-shrink-0">
                           <img 
-                            src={influencer.profilePicture || '/api/placeholder/40/40'} 
+                            src={getFullUrl(influencer.profilePicture)} 
                             alt={influencer.name}
                             className="w-10 h-10 rounded-full object-cover"
                           />

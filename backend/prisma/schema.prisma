@@ -187,12 +187,15 @@ model BrandProfile {
   industry        String?
   companySize     CompanySize? @map("company_size")
   logoUrl         String?     @map("logo_url")
+  website         String? 
   description     String?
   contactName     String?     @map("contact_name")
   contactPhone    String?     @map("contact_phone")
   marketingGoals  String[]    @default([]) @map("marketing_goals")
   budgetRange     String?     @map("budget_range")
   targetAudience  Json        @default("{}") @map("target_audience")
+  brandValues      String?
+   
   preferences     Json        @default("{}")
   createdAt       DateTime    @default(now()) @map("created_at")
   updatedAt       DateTime    @updatedAt @map("updated_at")

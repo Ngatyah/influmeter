@@ -28,6 +28,7 @@ import ErrorBoundary from '../../components/ErrorBoundary'
 import { campaignService, CampaignApplication } from '../../services/campaign.service'
 import { contentService, ContentSubmission } from '../../services/content.service'
 import { formatSafeDate, formatSafeBudget } from '../../utils/dateUtils'
+import { getFullUrl } from '../../lib/api'
 
 // Helper functions for status display
 const getStatusColor = (status: string) => {
@@ -530,7 +531,7 @@ function ActiveCampaignCard({ campaignData, onRefresh }: {
                         <div className="w-16 h-16 rounded-lg overflow-hidden bg-slate-200">
                           {content.files[0].fileType.startsWith('image/') ? (
                             <img 
-                              src={content.files[0].thumbnailUrl || content.files[0].fileUrl}
+                              src={getFullUrl(content.files[0].thumbnailUrl || content.files[0].fileUrl)}
                               alt="Content preview"
                               className="w-full h-full object-cover"
                             />

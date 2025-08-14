@@ -2,6 +2,8 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
 import { AppModule } from './app.module';
 
 // Fix BigInt serialization issue
@@ -10,7 +12,7 @@ import { AppModule } from './app.module';
 };
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
 
   // CORS
@@ -28,8 +30,13 @@ async function bootstrap() {
     }),
   );
 
-  // Global prefix
+  // Global prefix for API routes only
   app.setGlobalPrefix('api');
+
+  // Serve static files from uploads directory (after setting global prefix)
+  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+    prefix: '/uploads/',
+  });
 
   // Swagger documentation
   if (configService.get('APP_ENV') !== 'production') {

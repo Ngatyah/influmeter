@@ -32,6 +32,7 @@ import { campaignService, Campaign } from '../../services/campaign.service'
 import { contentService } from '../../services/content.service'
 import ApplicationReviewModal from '../../components/ApplicationReviewModal'
 import { formatSafeDate, formatSafeDatetime } from '../../utils/dateUtils'
+import { getFullUrl } from '../../lib/api'
 
 const tabs = [
   { id: 'overview', label: 'Overview' },
@@ -389,14 +390,28 @@ export default function CampaignDetail() {
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Dashboard
             </Button>
-            <div>
-              <h1 className="text-2xl font-semibold text-slate-900">{campaign.title}</h1>
-              <div className="flex items-center space-x-4 mt-1">
-                <Badge className={`${getStatusColor(campaign.status)} flex items-center space-x-1`}>
-                  {getStatusIcon(campaign.status)}
-                  <span className="capitalize">{campaign.status.toLowerCase()}</span>
-                </Badge>
-                <span className="text-sm text-slate-600">Campaign #{campaign.id}</span>
+            <div className="flex items-center space-x-4">
+              {campaign.brand?.brandProfile?.logoUrl && (
+                <img 
+                  src={getFullUrl(campaign.brand.brandProfile.logoUrl)} 
+                  alt={campaign.brand.brandProfile.companyName || 'Brand Logo'}
+                  className="w-16 h-16 rounded-lg object-cover"
+                />
+              )}
+              <div>
+                <h1 className="text-2xl font-semibold text-slate-900">{campaign.title}</h1>
+                <div className="flex items-center space-x-4 mt-1">
+                  <span className="text-sm font-medium text-slate-700">
+                    by {campaign.brand?.brandProfile?.companyName || 
+                        `${campaign.brand?.profile?.firstName || ''} ${campaign.brand?.profile?.lastName || ''}`.trim() || 
+                        'Unknown Brand'}
+                  </span>
+                  <Badge className={`${getStatusColor(campaign.status)} flex items-center space-x-1`}>
+                    {getStatusIcon(campaign.status)}
+                    <span className="capitalize">{campaign.status.toLowerCase()}</span>
+                  </Badge>
+                  <span className="text-sm text-slate-600">Campaign #{campaign.id}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -571,7 +586,7 @@ function ApplicationsTab({ applications, loading, onStatusUpdate, onRefresh }: {
                 >
                   <div className="flex items-center space-x-4">
                     <img 
-                      src={application.influencer?.profile?.avatarUrl || '/api/placeholder/60/60'}
+                      src={getFullUrl(application.influencer?.profile?.avatarUrl)}
                       alt={`${application.influencer?.profile?.firstName || ''} ${application.influencer?.profile?.lastName || ''}`.trim() || 'Influencer'}
                       className="w-12 h-12 rounded-full object-cover"
                     />
@@ -861,7 +876,7 @@ function InfluencersTab({ campaignId, participants, loading, onRefresh }: {
     id: participant.influencer?.id || participant.id,
     name: `${participant.influencer?.profile?.firstName || ''} ${participant.influencer?.profile?.lastName || ''}`.trim() || 'Unknown',
     username: participant.influencer?.influencerProfile?.bio || `@${participant.influencer?.profile?.firstName?.toLowerCase() || 'user'}`,
-    avatar: participant.influencer?.profile?.avatarUrl || '/api/placeholder/60/60',
+    avatar: getFullUrl(participant.influencer?.profile?.avatarUrl),
     followers: participant.influencer?.socialAccounts?.[0]?.followersCount ? 
       `${Math.round(participant.influencer.socialAccounts[0].followersCount / 1000)}K` : 'N/A',
     engagement: participant.influencer?.socialAccounts?.[0]?.engagementRate ? 
@@ -1026,7 +1041,7 @@ function ContentTab({ contentSubmissions, loading, onStatusUpdate, onRefresh }: 
               >
                 <div className="flex items-center space-x-4">
                   <img 
-                    src={submission.influencer?.profile?.avatarUrl || '/api/placeholder/60/60'}
+                    src={getFullUrl(submission.influencer?.profile?.avatarUrl)}
                     alt={`${submission.influencer?.profile?.firstName || ''} ${submission.influencer?.profile?.lastName || ''}`.trim() || 'Influencer'}
                     className="w-12 h-12 rounded-full object-cover"
                   />
@@ -1219,7 +1234,7 @@ function ContentDetailModal({ content, onClose, onStatusChange }: {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
               <img 
-                src={content.influencer?.profile?.avatarUrl || content.influencer?.avatar || '/api/placeholder/60/60'} 
+                src={getFullUrl(content.influencer?.profile?.avatarUrl || content.influencer?.avatar)} 
                 alt={content.influencer?.name || 'Influencer'}
                 className="w-12 h-12 rounded-full object-cover"
               />
@@ -1275,7 +1290,7 @@ function ContentDetailModal({ content, onClose, onStatusChange }: {
                           {file.fileType?.startsWith('image/') ? (
                             <div className="relative aspect-square rounded-lg overflow-hidden bg-slate-100 cursor-pointer hover:opacity-95 transition-opacity">
                               <img 
-                                src={file.thumbnailUrl || file.fileUrl} 
+                                src={getFullUrl(file.thumbnailUrl || file.fileUrl)} 
                                 alt={`Content ${index + 1}`}
                                 className="w-full h-full object-cover" 
                                 onClick={() => setSelectedImageIndex(index)}
@@ -1287,10 +1302,10 @@ function ContentDetailModal({ content, onClose, onStatusChange }: {
                           ) : file.fileType?.startsWith('video/') ? (
                             <div className="aspect-video rounded-lg overflow-hidden bg-slate-200 relative">
                               <video 
-                                src={file.fileUrl}
+                                src={getFullUrl(file.fileUrl)}
                                 className="w-full h-full object-cover"
                                 controls
-                                poster={file.thumbnailUrl}
+                                poster={getFullUrl(file.thumbnailUrl)}
                               />
                             </div>
                           ) : (
@@ -1314,7 +1329,7 @@ function ContentDetailModal({ content, onClose, onStatusChange }: {
                                 {file.fileType?.split('/')[1]?.toUpperCase() || 'FILE'}
                               </span>
                               <Button variant="ghost" size="sm" asChild className="h-6 px-2 text-white hover:bg-white/20">
-                                <a href={file.fileUrl} target="_blank" rel="noopener noreferrer">
+                                <a href={getFullUrl(file.fileUrl)} target="_blank" rel="noopener noreferrer">
                                   <Download className="w-3 h-3" />
                                 </a>
                               </Button>
@@ -1350,7 +1365,7 @@ function ContentDetailModal({ content, onClose, onStatusChange }: {
                               </div>
                             </div>
                             <Button variant="outline" size="sm" asChild>
-                              <a href={file.fileUrl} target="_blank" rel="noopener noreferrer">
+                              <a href={getFullUrl(file.fileUrl)} target="_blank" rel="noopener noreferrer">
                                 <Download className="w-3 h-3 mr-1" />
                                 Download
                               </a>
@@ -1734,7 +1749,7 @@ function ContentDetailModal({ content, onClose, onStatusChange }: {
         >
           <div className="relative max-w-4xl max-h-full">
             <img 
-              src={content.files[selectedImageIndex].fileUrl}
+              src={getFullUrl(content.files[selectedImageIndex].fileUrl)}
               alt={`Content preview ${selectedImageIndex + 1}`}
               className="max-w-full max-h-full object-contain"
             />

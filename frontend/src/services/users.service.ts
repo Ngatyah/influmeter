@@ -15,9 +15,9 @@ export interface User {
 export interface UserProfile {
   firstName?: string
   lastName?: string
-  phoneNumber?: string
+  phone?: string
   bio?: string
-  avatar?: string
+  avatarUrl?: string
   dateOfBirth?: string
   location?: string
 }
@@ -105,6 +105,23 @@ class UsersService {
       formData.append('logo', file)
 
       const response = await apiClient.post('/users/upload-logo', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      })
+      return response.data
+    } catch (error) {
+      throw new Error(handleApiError(error))
+    }
+  }
+
+  // Upload user avatar
+  async uploadAvatar(file: File): Promise<{ message: string, avatarUrl: string, user: User }> {
+    try {
+      const formData = new FormData()
+      formData.append('avatar', file)
+
+      const response = await apiClient.post('/users/upload-avatar', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

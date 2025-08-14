@@ -75,123 +75,124 @@ export default function SignupScreen() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center p-4 sm:p-6 lg:p-8">
+      <div className="w-full max-w-sm sm:max-w-md lg:max-w-lg">
         {/* Logo/Brand Section */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-600 rounded-2xl mb-4 shadow-lg">
-            <span className="text-2xl font-bold text-white">I</span>
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-primary rounded-2xl mb-3 sm:mb-4 shadow-lg">
+            <span className="text-xl sm:text-2xl font-bold text-primary-foreground">I</span>
           </div>
-          <h1 className="text-3xl font-bold text-indigo-600 mb-2">Influmeter</h1>
-          <p className="text-slate-600">Connect. Create. Collaborate.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-primary mb-1 sm:mb-2">Influmeter</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Connect. Create. Collaborate.</p>
         </div>
 
         <Card className="shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
-          <CardHeader className="text-center pb-4">
-            <CardTitle className="text-2xl font-semibold text-slate-800 mb-2">
+          <CardHeader className="text-center pb-3 sm:pb-4 px-4 sm:px-6">
+            <CardTitle className="text-xl sm:text-2xl font-semibold text-slate-800 mb-1 sm:mb-2">
               Join Influmeter
             </CardTitle>
-            <p className="text-slate-600">
+            <p className="text-sm sm:text-base text-slate-600">
               Create your account to get started
             </p>
           </CardHeader>
           
-          <CardContent className="space-y-6 px-8 pb-8">
+          <CardContent className="space-y-5 sm:space-y-6 px-4 sm:px-6 lg:px-8 pb-6 sm:pb-8">
             {/* Error Display */}
             {error && (
-              <div className="p-4 bg-red-50 border-l-4 border-red-400 rounded-md">
+              <div className="p-3 sm:p-4 bg-red-50 border-l-4 border-red-400 rounded-md">
                 <p className="text-sm text-red-700">{error}</p>
               </div>
             )}
 
             {/* Enhanced Role Selection */}
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               <label className="text-sm font-semibold text-slate-700">I am a</label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <Button
                   type="button"
                   variant={formData.role === 'influencer' ? 'default' : 'outline'}
-                  className={`h-14 text-sm font-medium transition-all duration-200 ${
+                  className={`h-12 sm:h-14 text-xs sm:text-sm font-medium transition-all duration-200 ${
                     formData.role === 'influencer' 
-                      ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/25' 
-                      : 'border-2 border-slate-200 hover:border-indigo-500/50 hover:bg-indigo-50'
+                      ? 'bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/25' 
+                      : 'border-2 border-slate-200 hover:border-primary/50 hover:bg-primary/5'
                   }`}
                   onClick={() => handleInputChange('role', 'influencer')}
                   disabled={loading}
                 >
-                  <User className="w-5 h-5 mr-2" />
-                  Influencer
+                  <User className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
+                  <span className="hidden xs:inline">Influencer</span>
+                  <span className="xs:hidden">Creator</span>
                 </Button>
                 <Button
                   type="button"
                   variant={formData.role === 'brand' ? 'default' : 'outline'}
-                  className={`h-14 text-sm font-medium transition-all duration-200 ${
+                  className={`h-12 sm:h-14 text-xs sm:text-sm font-medium transition-all duration-200 ${
                     formData.role === 'brand' 
-                      ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/25' 
-                      : 'border-2 border-slate-200 hover:border-indigo-500/50 hover:bg-indigo-50'
+                      ? 'bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/25' 
+                      : 'border-2 border-slate-200 hover:border-primary/50 hover:bg-primary/5'
                   }`}
                   onClick={() => handleInputChange('role', 'brand')}
                   disabled={loading}
                 >
-                  <Building2 className="w-5 h-5 mr-2" />
+                  <Building2 className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
                   Brand
                 </Button>
               </div>
             </div>
 
             {/* Enhanced Signup Form */}
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="space-y-2">
+            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+              <div className="space-y-1 sm:space-y-2">
                 <label htmlFor="name" className="text-sm font-medium text-slate-700">
                   {formData.role === 'brand' ? 'Brand Name' : 'Full Name'}
                 </label>
                 <div className="relative group">
-                  <User className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                  <User className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-slate-400 group-focus-within:text-primary transition-colors" />
                   <Input
                     id="name"
                     type="text"
                     placeholder={formData.role === 'brand' ? 'Enter brand name' : 'Enter your full name'}
                     value={formData.name}
                     onChange={(e) => handleInputChange('name', e.target.value)}
-                    className="pl-12 h-12 border-2 border-slate-200 focus:border-indigo-600 transition-colors bg-white"
+                    className="pl-10 sm:pl-12 h-11 sm:h-12 border-2 border-slate-200 focus:border-primary transition-colors bg-white text-sm sm:text-base"
                     required
                     disabled={loading}
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1 sm:space-y-2">
                 <label htmlFor="email" className="text-sm font-medium text-slate-700">
                   Email Address
                 </label>
                 <div className="relative group">
-                  <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                  <Mail className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-slate-400 group-focus-within:text-primary transition-colors" />
                   <Input
                     id="email"
                     type="email"
                     placeholder="Enter your email"
                     value={formData.email}
                     onChange={(e) => handleInputChange('email', e.target.value)}
-                    className="pl-12 h-12 border-2 border-slate-200 focus:border-indigo-600 transition-colors bg-white"
+                    className="pl-10 sm:pl-12 h-11 sm:h-12 border-2 border-slate-200 focus:border-primary transition-colors bg-white text-sm sm:text-base"
                     required
                     disabled={loading}
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1 sm:space-y-2">
                 <label htmlFor="password" className="text-sm font-medium text-slate-700">
                   Password
                 </label>
                 <div className="relative group">
-                  <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                  <Lock className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-slate-400 group-focus-within:text-primary transition-colors" />
                   <Input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
                     placeholder="Create a password"
                     value={formData.password}
                     onChange={(e) => handleInputChange('password', e.target.value)}
-                    className="pl-12 pr-12 h-12 border-2 border-slate-200 focus:border-indigo-600 transition-colors bg-white"
+                    className="pl-10 sm:pl-12 pr-10 sm:pr-12 h-11 sm:h-12 border-2 border-slate-200 focus:border-primary transition-colors bg-white text-sm sm:text-base"
                     required
                     minLength={6}
                     disabled={loading}
@@ -200,14 +201,14 @@ export default function SignupScreen() {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-slate-100"
+                    className="absolute right-1 sm:right-2 top-1/2 transform -translate-y-1/2 h-7 w-7 sm:h-8 sm:w-8 p-0 hover:bg-slate-100"
                     onClick={() => setShowPassword(!showPassword)}
                     disabled={loading}
                   >
                     {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-slate-500" />
+                      <EyeOff className="h-3 w-3 sm:h-4 sm:w-4 text-slate-500" />
                     ) : (
-                      <Eye className="h-4 w-4 text-slate-500" />
+                      <Eye className="h-3 w-3 sm:h-4 sm:w-4 text-slate-500" />
                     )}
                   </Button>
                 </div>

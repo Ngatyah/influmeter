@@ -15,12 +15,17 @@ export class UpdateUserProfileDto {
   @ApiProperty({ description: 'Phone number', required: false })
   @IsString()
   @IsOptional()
-  phoneNumber?: string;
+  phone?: string;
 
   @ApiProperty({ description: 'Bio', required: false })
   @IsString()
   @IsOptional()
   bio?: string;
+
+  @ApiProperty({ description: 'Avatar URL', required: false })
+  @IsString()
+  @IsOptional()
+  avatarUrl?: string;
 
   @ApiProperty({ description: 'Avatar URL', required: false })
   @IsString()

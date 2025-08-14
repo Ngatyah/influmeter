@@ -26,6 +26,7 @@ import { Badge } from '../../components/ui/badge'
 import { Checkbox } from '../../components/ui/checkbox'
 import { campaignService, Campaign, CampaignFilters } from '../../services/campaign.service'
 import { formatSafeDate } from '../../utils/dateUtils'
+import { getFullUrl } from '../../lib/api'
 
 
 interface Filters {
@@ -443,7 +444,7 @@ function CampaignCard({ campaign, onToggleBookmark, onViewDetails, onApply }: {
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center space-x-3">
             <img 
-              src={campaign.brand.logo} 
+              src={getFullUrl(campaign.brand.logo)} 
               alt={campaign.brand.name}
               className="w-12 h-12 rounded-full object-cover"
             />

@@ -27,6 +27,7 @@ import { usersService, User } from '../../services/users.service'
 import { contentService, ContentSubmission } from '../../services/content.service'
 import { paymentsService } from '../../services/payments.service'
 import { formatSafeDate } from '../../utils/dateUtils'
+import { getFullUrl } from '../../lib/api'
 
 export default function InfluencerContentView() {
   const navigate = useNavigate()
@@ -196,7 +197,7 @@ export default function InfluencerContentView() {
   }
 
   const getAvatarUrl = (user: User): string => {
-    return usersService.getAvatarUrl(user)
+    return getFullUrl(user.profile?.avatarUrl)
   }
 
   const getFollowerCount = (user: User): string => {
@@ -498,9 +499,9 @@ function ContentCard({
 
   const getContentThumbnail = (): string => {
     if (content.files && content.files.length > 0) {
-      return content.files[0].thumbnailUrl || content.files[0].fileUrl || '/api/placeholder/300/300'
+      return getFullUrl(content.files[0].thumbnailUrl || content.files[0].fileUrl)
     }
-    return '/api/placeholder/300/300'
+    return getFullUrl('/api/placeholder/300/300')
   }
 
   return (
@@ -821,7 +822,7 @@ function PaymentModal({
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Content Review</h3>
               <div className="flex space-x-4">
-                <img src={content.files?.[0]?.thumbnailUrl || '/api/placeholder/300/300'} alt="Content" className="w-32 h-32 object-cover rounded-lg" />
+                <img src={getFullUrl(content.files?.[0]?.thumbnailUrl)} alt="Content" className="w-32 h-32 object-cover rounded-lg" />
                 <div className="flex-1">
                   <h4 className="font-medium text-slate-900 mb-1">{content.title || 'Untitled'}</h4>
                   <p className="text-slate-600 mb-2">{content.description || content.caption || 'No description'}</p>

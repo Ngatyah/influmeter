@@ -3,6 +3,7 @@ import { Clock, CheckCircle, XCircle, Star } from 'lucide-react'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { formatSafeDatetime } from '../utils/dateUtils'
+import { getFullUrl } from '../lib/api'
 
 interface ApplicationReviewModalProps {
   application: any
@@ -25,7 +26,7 @@ export default function ApplicationReviewModal({
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
               <img 
-                src={application.influencer?.profile?.avatarUrl || '/api/placeholder/60/60'}
+                src={getFullUrl(application.influencer?.profile?.avatarUrl)}
                 alt={`${application.influencer?.profile?.firstName || ''} ${application.influencer?.profile?.lastName || ''}`.trim() || 'Influencer'}
                 className="w-12 h-12 rounded-full object-cover"
               />

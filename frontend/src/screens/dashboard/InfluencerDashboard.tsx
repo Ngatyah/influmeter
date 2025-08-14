@@ -26,7 +26,8 @@ import { useAppSelector, useAppDispatch } from '../../hooks/redux'
 import { logoutUser } from '../../store/slices/authSlice'
 import NotificationSystem from '../../components/notifications/NotificationSystem'
 import { dashboardService, InfluencerDashboardData } from '../../services/dashboard.service'
-import { apiClient } from '../../lib/api'
+import { apiClient, getFullUrl } from '../../lib/api'
+import { usersService } from '../../services/users.service'
 
 // Enhanced earnings data from backend
 interface InfluencerEarningsData {
@@ -85,6 +86,7 @@ export default function InfluencerDashboard() {
   const [earningsData, setEarningsData] = useState<InfluencerEarningsData | null>(null)
   const [campaignsData, setCampaignsData] = useState<InfluencerCampaignData[]>([])
   const [activitiesData, setActivitiesData] = useState<any[]>([])
+  const [currentUser, setCurrentUser] = useState<any>(null)
 
   // Load dashboard data
   useEffect(() => {
@@ -97,15 +99,17 @@ export default function InfluencerDashboard() {
       setError('')
       
       // Load all dashboard data in parallel
-      const [overviewData, earningsResponse, campaignsResponse] = await Promise.all([
+      const [overviewData, earningsResponse, campaignsResponse, userResponse] = await Promise.all([
         dashboardService.getInfluencerDashboard(),
         apiClient.get('/dashboard/influencer/earnings'),
-        apiClient.get('/dashboard/influencer/campaigns?limit=5')
+        apiClient.get('/dashboard/influencer/campaigns?limit=5'),
+        usersService.getCurrentUser()
       ])
       
       setDashboardData(overviewData)
       setEarningsData(earningsResponse.data)
       setCampaignsData(campaignsResponse.data)
+      setCurrentUser(userResponse)
       
       // Generate recent activities from earnings and campaigns
       const recentActivities = [
@@ -377,13 +381,20 @@ export default function InfluencerDashboard() {
             {/* User profile section */}
             <div className="flex items-center space-x-3">
               <img 
-                src="/api/placeholder/40/40" 
+                src={getFullUrl(currentUser?.profile?.avatarUrl)} 
                 alt="Profile"
                 className="w-8 h-8 rounded-full object-cover"
               />
               <div className="hidden sm:block">
-                <p className="text-sm font-medium text-slate-900">Influencer Name</p>
-                <p className="text-xs text-slate-600">@username</p>
+                <p className="text-sm font-medium text-slate-900">
+                  {currentUser?.profile?.firstName && currentUser?.profile?.lastName 
+                    ? `${currentUser.profile.firstName} ${currentUser.profile.lastName}`
+                    : 'Influencer Name'
+                  }
+                </p>
+                <p className="text-xs text-slate-600">
+                  @{currentUser?.profile?.firstName?.toLowerCase() || 'username'}
+                </p>
               </div>
             </div>
           </div>

@@ -2,6 +2,7 @@ import axios from 'axios'
 
 // API Configuration
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api'
+const SERVER_BASE_URL = process.env.REACT_APP_SERVER_URL || 'http://localhost:3001'
 
 console.log('🔗 API Base URL:', API_BASE_URL) // Debug log
 
@@ -74,4 +75,22 @@ export const handleApiError = (error: any) => {
     return error.response.data.message
   }
   return error.message || 'An unexpected error occurred'
+}
+
+// Utility function to convert relative paths to full URLs
+export const getFullUrl = (path: string | null | undefined): string => {
+  if (!path) return '/api/placeholder/80/80'
+  
+  // If it's already a full URL, return as is
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path
+  }
+  
+  // If it's a relative path starting with /, prepend the server base URL
+  if (path.startsWith('/')) {
+    return `${SERVER_BASE_URL}${path}`
+  }
+  
+  // If it's a placeholder or other path, return as is
+  return path
 }
