@@ -106,6 +106,11 @@ export class BrandCompanyDto {
   @IsOptional()
   @IsString()
   contactName?: string;
+
+  @ApiProperty()
+  @IsOptional()
+  @IsString()
+  contactPhone?: string;
 }
 
 export class BrandGoalsDto {

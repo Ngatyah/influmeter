@@ -154,6 +154,7 @@ export class ContentFilterDto {
   @IsNumber()
   @Min(1)
   @IsOptional()
+  @Type(() => Number)
   page?: number;
 
   @ApiProperty({ description: 'Items per page', required: false, minimum: 1, maximum: 100 })
@@ -161,6 +162,7 @@ export class ContentFilterDto {
   @Min(1)
   @Max(100)
   @IsOptional()
+  @Type(() => Number)
   limit?: number;
 }
 

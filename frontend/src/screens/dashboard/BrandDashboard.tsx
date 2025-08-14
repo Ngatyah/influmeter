@@ -105,11 +105,97 @@ export default function BrandDashboard() {
       
       setDashboardData(overviewResponse.data)
       setAnalyticsData(analyticsResponse.data)
+      
+      // Try to load active campaigns separately using the correct endpoint
+      try {
+        const campaignsResponse = await apiClient.get('/campaigns/my-campaigns')
+        console.log('My Campaigns API Response:', campaignsResponse.data)
+        
+        // Handle different possible response structures
+        let allCampaigns = []
+        if (Array.isArray(campaignsResponse.data)) {
+          allCampaigns = campaignsResponse.data
+        } else if (campaignsResponse.data.campaigns && Array.isArray(campaignsResponse.data.campaigns)) {
+          allCampaigns = campaignsResponse.data.campaigns
+        } else if (campaignsResponse.data.data && Array.isArray(campaignsResponse.data.data)) {
+          allCampaigns = campaignsResponse.data.data
+        }
+        
+        // Filter for active campaigns only
+        const activeCampaigns = allCampaigns.filter(campaign => 
+          campaign.status === 'ACTIVE' || campaign.status === 'active' || campaign.status === 'Active'
+        ).slice(0, 5)
+        
+        console.log('Filtered active campaigns:', activeCampaigns)
+        
+        // Debug each campaign's structure
+        activeCampaigns.forEach((campaign, index) => {
+          console.log(`Campaign ${index + 1} structure:`, {
+            id: campaign.id,
+            title: campaign.title,
+            status: campaign.status,
+            budget: campaign.budget,
+            startDate: campaign.startDate,
+            endDate: campaign.endDate,
+            _count: campaign._count,
+            allFields: Object.keys(campaign)
+          })
+        })
+        
+        setActiveCampaigns(activeCampaigns)
+      } catch (campaignError) {
+        console.log('Failed to load my-campaigns, trying fallback:', campaignError)
+        // Try the generic campaigns endpoint as fallback
+        try {
+          const fallbackResponse = await apiClient.get('/campaigns?status=active&limit=5')
+          console.log('Fallback Campaigns API Response:', fallbackResponse.data)
+          
+          let campaigns = []
+          if (Array.isArray(fallbackResponse.data)) {
+            campaigns = fallbackResponse.data
+          } else if (fallbackResponse.data.campaigns && Array.isArray(fallbackResponse.data.campaigns)) {
+            campaigns = fallbackResponse.data.campaigns
+          } else if (fallbackResponse.data.data && Array.isArray(fallbackResponse.data.data)) {
+            campaigns = fallbackResponse.data.data
+          }
+          
+          console.log('Fallback processed campaigns:', campaigns)
+          setActiveCampaigns(campaigns)
+        } catch (secondError) {
+          console.log('Both campaigns APIs failed, showing empty state:', secondError)
+          setActiveCampaigns([])
+        }
+      }
+
+      // Try to load pending actions separately
+      try {
+        const pendingActionsResponse = await apiClient.get('/dashboard/brand/pending-actions')
+        setPendingActions(pendingActionsResponse.data || [])
+      } catch (actionsError) {
+        console.log('Failed to load pending actions, using fallback')
+        setPendingActions([
+          {
+            id: '1',
+            text: '5 content submissions to review',
+            action: 'Review',
+            urgent: true,
+            actionUrl: '/content/approvals'
+          },
+          {
+            id: '2',
+            text: '2 campaign applications',
+            action: 'View',
+            urgent: false,
+            actionUrl: '/campaigns'
+          }
+        ])
+      }
+
     } catch (error) {
       console.error('Failed to load dashboard data:', error)
       setError('Failed to load dashboard data')
       
-      // Use mock data as fallback
+      // Use original mock data as fallback for all sections
       const mockData: BrandDashboardBackendData = {
         totalCampaigns: 12,
         activeCampaigns: 3,
@@ -177,6 +263,20 @@ export default function BrandDashboard() {
       
       setDashboardData(mockData)
       setAnalyticsData(mockAnalytics)
+      
+      // Don't set mock campaigns here - let the individual try-catch handle it
+      setActiveCampaigns([])
+      
+      // Mock pending actions
+      setPendingActions([
+        {
+          id: '1',
+          text: '5 content submissions to review',
+          action: 'Review',
+          urgent: true,
+          actionUrl: '/content/approvals'
+        }
+      ])
     } finally {
       setLoading(false)
     }
@@ -197,25 +297,10 @@ export default function BrandDashboard() {
     return `${rate.toFixed(1)}%`
   }
 
-  // Mock data for other components (will be replaced with backend data later)
-  const activeCampaigns = [
-    {
-      id: 1,
-      name: "Summer Skincare",
-      status: "active",
-      influencers: 12,
-      budget: "$5,000",
-      performance: "+15%"
-    },
-    {
-      id: 2,
-      name: "Product Launch",
-      status: "pending",
-      influencers: 8,
-      budget: "$3,200",
-      performance: "N/A"
-    }
-  ]
+  // State for active campaigns and pending actions
+  const [activeCampaigns, setActiveCampaigns] = useState<any[]>([])
+  const [pendingActions, setPendingActions] = useState<any[]>([])
+  const [loadingCampaigns, setLoadingCampaigns] = useState(false)
 
   if (loading) {
     return (
@@ -434,36 +519,62 @@ export default function BrandDashboard() {
               <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg font-semibold">Active Campaigns</CardTitle>
-                  <Button variant="outline" size="sm">View All</Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => navigate('/campaigns')}
+                  >
+                    View All
+                  </Button>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {activeCampaigns.map((campaign) => (
-                    <div 
-                      key={campaign.id} 
-                      className="flex items-center justify-between p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors"
-                      onClick={() => navigate(`/campaigns/${campaign.id}`)}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className={`w-3 h-3 rounded-full ${
-                          campaign.status === 'active' ? 'bg-green-500' : 'bg-yellow-500'
-                        }`}></div>
-                        <div>
-                          <h3 className="font-medium text-slate-900 hover:text-primary">{campaign.name}</h3>
-                          <p className="text-sm text-slate-600">
-                            {campaign.influencers} influencers • {campaign.budget}
-                          </p>
+                  {activeCampaigns.length > 0 ? (
+                    activeCampaigns.map((campaign) => (
+                      <div 
+                        key={campaign.id} 
+                        className="flex items-center justify-between p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors"
+                        onClick={() => navigate(`/campaigns/${campaign.id}`)}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className={`w-3 h-3 rounded-full ${
+                            campaign.status === 'active' ? 'bg-green-500' : 
+                            campaign.status === 'draft' ? 'bg-yellow-500' : 
+                            campaign.status === 'paused' ? 'bg-red-500' : 'bg-slate-400'
+                          }`}></div>
+                          <div className="min-w-0 flex-1">
+                            <h3 className="font-medium text-slate-900 hover:text-primary truncate">
+                              {campaign.title}
+                            </h3>
+                            <p className="text-sm text-slate-600 truncate">
+                              {campaign._count?.participants || campaign._count?.influencers || campaign._count?.applications || campaign.participantsCount || 0} influencers • {formatCurrency(campaign.budget || 0)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0 ml-4">
+                          <Badge variant={campaign.status === 'ACTIVE' ? 'default' : 'secondary'}>
+                            {campaign.status}
+                          </Badge>
+                          {campaign.endDate && (
+                            <p className="text-xs text-slate-500 mt-1">
+                              Ends {new Date(campaign.endDate).toLocaleDateString()}
+                            </p>
+                          )}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <Badge variant={campaign.status === 'active' ? 'default' : 'secondary'}>
-                          {campaign.status}
-                        </Badge>
-                        {campaign.performance !== 'N/A' && (
-                          <p className="text-sm text-green-600 mt-1">{campaign.performance}</p>
-                        )}
-                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8">
+                      <Target className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                      <p className="text-slate-500 mb-4">No active campaigns yet</p>
+                      <Button 
+                        onClick={() => navigate('/campaigns/create')}
+                        className="bg-primary hover:bg-primary/90 text-white"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create Your First Campaign
+                      </Button>
                     </div>
-                  ))}
+                  )}
                 </CardContent>
               </Card>
 
@@ -503,15 +614,15 @@ export default function BrandDashboard() {
                 <CardHeader>
                   <CardTitle className="text-lg font-semibold">Top Influencers</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-3 overflow-hidden">
                   {(dashboardData?.topInfluencers || []).map((influencer) => (
                     <div 
                       key={influencer.id} 
-                      className="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                      className="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors min-w-0"
                       onClick={() => navigate(`/influencer/${influencer.id}`)}
                     >
-                      <div className="flex items-center space-x-3">
-                        <div className="relative">
+                      <div className="flex items-center space-x-3 min-w-0 flex-1">
+                        <div className="relative flex-shrink-0">
                           <img 
                             src={influencer.profilePicture || '/api/placeholder/40/40'} 
                             alt={influencer.name}
@@ -521,12 +632,12 @@ export default function BrandDashboard() {
                             <Star className="w-2.5 h-2.5 text-white" />
                           </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-slate-900">{influencer.name}</p>
-                          <p className="text-xs text-slate-600">{influencer.handle}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-slate-900 truncate">{influencer.name}</p>
+                          <p className="text-xs text-slate-600 truncate">{influencer.handle}</p>
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right flex-shrink-0 ml-2">
                         <p className="text-sm font-semibold text-slate-900">{influencer.totalSubmissions}</p>
                         <p className="text-xs text-green-600">submissions</p>
                       </div>
@@ -548,19 +659,22 @@ export default function BrandDashboard() {
                   <CardTitle className="text-lg font-semibold">Pending Actions</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <PendingAction 
-                    text="5 content submissions to review"
-                    action="Review"
-                    urgent
-                  />
-                  <PendingAction 
-                    text="2 campaign applications"
-                    action="View"
-                  />
-                  <PendingAction 
-                    text="Budget approval needed"
-                    action="Approve"
-                  />
+                  {pendingActions.length > 0 ? (
+                    pendingActions.map((action) => (
+                      <PendingAction 
+                        key={action.id}
+                        text={action.text}
+                        action={action.action}
+                        urgent={action.urgent}
+                        actionUrl={action.actionUrl}
+                      />
+                    ))
+                  ) : (
+                    <div className="text-center py-6">
+                      <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                      <p className="text-slate-500 text-sm">All caught up! No pending actions.</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -672,18 +786,27 @@ function ActivityItem({ icon: Icon, text, time, iconColor }: {
   )
 }
 
-function PendingAction({ text, action, urgent = false }: {
+function PendingAction({ text, action, urgent = false, actionUrl }: {
   text: string,
   action: string,
-  urgent?: boolean
+  urgent?: boolean,
+  actionUrl?: string
 }) {
+  const navigate = useNavigate()
+  
   return (
     <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg">
       <div className="flex items-center space-x-2">
         {urgent && <div className="w-2 h-2 bg-red-500 rounded-full"></div>}
         <p className="text-sm text-slate-900">{text}</p>
       </div>
-      <Button variant="outline" size="sm">{action}</Button>
+      <Button 
+        variant="outline" 
+        size="sm"
+        onClick={() => actionUrl && navigate(actionUrl)}
+      >
+        {action}
+      </Button>
     </div>
   )
 }

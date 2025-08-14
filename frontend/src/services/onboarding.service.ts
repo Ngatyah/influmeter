@@ -37,6 +37,7 @@ export interface BrandCompanyData {
   companySize: string
   description: string
   contactName: string
+  contactPhone: string
   logoUrl?: string
 }
 

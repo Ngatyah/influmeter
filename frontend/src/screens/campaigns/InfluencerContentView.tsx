@@ -14,7 +14,9 @@ import {
   Wallet,
   TrendingUp,
   X,
-  Loader2
+  Loader2,
+  ExternalLink,
+  Heart
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
@@ -545,6 +547,113 @@ function ContentCard({
             </div>
           </div>
         </div>
+        
+       
+        
+        {/* Live URLs Section - NEW */}
+        {content.publishedPosts && content.publishedPosts.length > 0 && (
+          <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-sm font-medium text-green-900 flex items-center">
+                <ExternalLink className="w-4 h-4 mr-1" />
+                Live Posts ({content.publishedPosts.length})
+              </h4>
+              <Badge variant="outline" className="text-xs text-green-700 border-green-300">
+                Analytics Ready
+              </Badge>
+            </div>
+            <div className="space-y-2">
+              {content.publishedPosts.map((post, index) => (
+                <div key={post.id || index} className="flex items-center justify-between text-sm bg-white p-2 rounded border border-green-200">
+                  <div className="flex items-center space-x-2 flex-1">
+                    <Badge variant="outline" className="text-xs">
+                      {post.platform}
+                    </Badge>
+                    <span className="text-green-800 font-medium">{post.postType || 'POST'}</span>
+                    <span className="text-xs text-green-600">
+                      {formatSafeDate(post.publishedAt)}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {post.performance && (
+                      <div className="flex items-center space-x-2 text-green-700">
+                        <div className="flex items-center space-x-1">
+                          <Eye className="w-3 h-3" />
+                          <span className="text-xs">{post.performance.views?.toLocaleString() || '0'}</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <Heart className="w-3 h-3" />
+                          <span className="text-xs">{post.performance.likes?.toLocaleString() || '0'}</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <MessageCircle className="w-3 h-3" />
+                          <span className="text-xs">{post.performance.comments?.toLocaleString() || '0'}</span>
+                        </div>
+                      </div>
+                    )}
+                    <Button variant="ghost" size="sm" asChild className="h-6 px-2">
+                      <a 
+                        href={post.postUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-green-600 hover:text-green-700"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {/* Analytics Summary */}
+            {content.publishedPosts.some(post => post.performance) && (
+              <div className="mt-3 p-2 bg-green-100 rounded border border-green-300">
+                <div className="text-xs text-green-800 font-medium mb-1">Total Performance:</div>
+                <div className="grid grid-cols-3 gap-2 text-xs text-green-700">
+                  <div className="flex items-center space-x-1">
+                    <Eye className="w-3 h-3" />
+                    <span>
+                      {content.publishedPosts
+                        .reduce((sum, post) => sum + (post.performance?.views || 0), 0)
+                        .toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <Heart className="w-3 h-3" />
+                    <span>
+                      {content.publishedPosts
+                        .reduce((sum, post) => sum + (post.performance?.likes || 0), 0)
+                        .toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <MessageCircle className="w-3 h-3" />
+                    <span>
+                      {content.publishedPosts
+                        .reduce((sum, post) => sum + (post.performance?.comments || 0), 0)
+                        .toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* No Live Posts Message - NEW */}
+        {(content.status === 'APPROVED' || content.status === 'COMPLETED') && 
+         (!content.publishedPosts || content.publishedPosts.length === 0) && (
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center space-x-2 text-blue-800">
+              <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
+              <span className="text-sm font-medium">Waiting for Live URLs</span>
+            </div>
+            <p className="text-xs text-blue-600 mt-1">
+              Influencer needs to submit live post URLs for analytics tracking
+            </p>
+          </div>
+        )}
         
         {/* Enhanced Action Buttons */}
         <div className="space-y-2 mt-4">

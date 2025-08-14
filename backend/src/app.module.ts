@@ -15,6 +15,10 @@ import { SocialModule } from './social/social.module';
 import { CampaignsModule } from './campaigns/campaigns.module';
 import { ContentModule } from './content/content.module';
 import { PaymentsModule } from './payments/payments.module';
+import { DiscoverModule } from './discover/discover.module';
+import { PortfolioModule } from './portfolio/portfolio.module';
+import { PackagesModule } from './packages/packages.module';
+import { InquiriesModule } from './inquiries/inquiries.module';
 
 @Module({
   imports: [
@@ -57,6 +61,10 @@ import { PaymentsModule } from './payments/payments.module';
     CampaignsModule,
     ContentModule,
     PaymentsModule,
+    DiscoverModule,
+    PortfolioModule,
+    PackagesModule,
+    InquiriesModule,
   ],
 })
 export class AppModule {}

@@ -34,6 +34,7 @@ export default function BrandOnboarding() {
     description: '',
     logo: null as File | null,
     contactName: '',
+    contactPhone: '',
 
     // Step 2: Marketing Goals
     marketingGoals: [] as string[],
@@ -58,7 +59,13 @@ export default function BrandOnboarding() {
     'Home & Garden', 'Sports', 'Gaming', 'Other'
   ]
 
-  const companySizes = ['1-10', '11-50', '51-200', '201-1000', '1000+']
+  const companySizes = [
+    { value: 'STARTUP', label: '1-10 employees (Startup)' },
+    { value: 'SMALL', label: '11-50 employees (Small)' },
+    { value: 'MEDIUM', label: '51-200 employees (Medium)' },
+    { value: 'LARGE', label: '201-1000 employees (Large)' },
+    { value: 'ENTERPRISE', label: '1000+ employees (Enterprise)' }
+  ]
 
   const marketingGoals = [
     'Brand Awareness', 'Product Launch', 'Sales Growth', 'Community Building',
@@ -97,6 +104,7 @@ export default function BrandOnboarding() {
             companySize: formData.companySize,
             description: formData.description,
             contactName: formData.contactName,
+            contactPhone: formData.contactPhone,
             logoUrl: '' // Will be implemented with proper file upload service
           })
           break
@@ -263,7 +271,7 @@ export default function BrandOnboarding() {
                     >
                       <option value="">Select company size</option>
                       {companySizes.map((size) => (
-                        <option key={size} value={size}>{size} employees</option>
+                        <option key={size.value} value={size.value}>{size.label}</option>
                       ))}
                     </select>
                   </div>
@@ -284,16 +292,31 @@ export default function BrandOnboarding() {
                   <p className="text-xs text-slate-500 mt-1">{formData.description.length}/500 characters</p>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Contact Person Name *
-                  </label>
-                  <Input
-                    value={formData.contactName}
-                    onChange={(e) => setFormData({...formData, contactName: e.target.value})}
-                    placeholder="Name of the person we can contact at your company"
-                    required
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Contact Person Name *
+                    </label>
+                    <Input
+                      value={formData.contactName}
+                      onChange={(e) => setFormData({...formData, contactName: e.target.value})}
+                      placeholder="Name of the person we can contact"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Contact Phone Number *
+                    </label>
+                    <Input
+                      value={formData.contactPhone}
+                      onChange={(e) => setFormData({...formData, contactPhone: e.target.value})}
+                      placeholder="+254 700 123 456"
+                      type="tel"
+                      required
+                    />
+                  </div>
                 </div>
               </div>
             )}

@@ -9,6 +9,7 @@ export interface Campaign {
   budget?: number
   startDate?: string
   endDate?: string
+  maxInfluencers?: number
   status: 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'CANCELLED'
   targetCriteria?: object
   requirements?: object
@@ -75,6 +76,7 @@ export interface CreateCampaignData {
   budget?: number
   startDate?: string
   endDate?: string
+  maxInfluencers?: number
   targetCriteria?: object
   requirements?: object
   status?: 'DRAFT' | 'ACTIVE'
@@ -266,6 +268,7 @@ class CampaignService {
       budget: frontendData.budget?.total ? parseFloat(frontendData.budget.total) : undefined,
       startDate: frontendData.timeline?.startDate || undefined,
       endDate: frontendData.timeline?.endDate || undefined,
+      maxInfluencers: frontendData.influencerRequirements?.maxInfluencers ? parseInt(frontendData.influencerRequirements.maxInfluencers) : undefined,
       targetCriteria: {
         targetAudience: frontendData.targetAudience,
         influencerRequirements: frontendData.influencerRequirements

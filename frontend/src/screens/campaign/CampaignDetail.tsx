@@ -19,7 +19,11 @@ import {
   TrendingUp,
   Download,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  ExternalLink,
+  Heart,
+  MessageCircle,
+  Share2
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
@@ -670,7 +674,7 @@ function OverviewTab({ campaign }: { campaign: any }) {
               <div>
                 <p className="text-sm text-slate-600">Influencers Joined</p>
                 <p className="text-2xl font-bold text-slate-900">
-                  {campaign._count?.participants || 0}/∞
+                  {campaign._count?.participants || 0}/{campaign.maxInfluencers || '∞'}
                 </p>
               </div>
               <Users className="w-8 h-8 text-slate-400" />
@@ -714,6 +718,71 @@ function OverviewTab({ campaign }: { campaign: any }) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Live Posts Analytics Card - NEW */}
+      <Card className="shadow-lg border-0 bg-gradient-to-r from-green-50 to-blue-50 border-green-200">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <ExternalLink className="w-5 h-5 text-green-600" />
+            <span>Live Posts & Performance</span>
+            <Badge variant="outline" className="text-xs text-green-700 border-green-300">
+              Real-time Analytics
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-4">
+            <div className="text-3xl font-bold text-green-700 mb-2">
+              🔗 {/* Replace with actual count when backend is connected */}
+              {campaign.contentSubmissions?.reduce((count: number, content: any) => 
+                count + (content.publishedPosts?.length || 0), 0) || 0}
+            </div>
+            <div className="text-sm text-slate-600 mb-4">Total Live Posts Submitted</div>
+            <div className="grid grid-cols-4 gap-4 text-center">
+              <div className="p-2 bg-white rounded-lg border border-green-200">
+                <Eye className="w-4 h-4 mx-auto mb-1 text-green-600" />
+                <div className="text-xs font-medium text-green-800">Views</div>
+                <div className="text-sm font-bold text-green-900">
+                  {/* Calculate total views from all published posts */}
+                  {campaign.contentSubmissions?.reduce((total: number, content: any) => 
+                    total + (content.publishedPosts?.reduce((sum: number, post: any) => 
+                      sum + (post.performance?.views || 0), 0) || 0), 0)?.toLocaleString() || '0'}
+                </div>
+              </div>
+              <div className="p-2 bg-white rounded-lg border border-green-200">
+                <Heart className="w-4 h-4 mx-auto mb-1 text-green-600" />
+                <div className="text-xs font-medium text-green-800">Likes</div>
+                <div className="text-sm font-bold text-green-900">
+                  {campaign.contentSubmissions?.reduce((total: number, content: any) => 
+                    total + (content.publishedPosts?.reduce((sum: number, post: any) => 
+                      sum + (post.performance?.likes || 0), 0) || 0), 0)?.toLocaleString() || '0'}
+                </div>
+              </div>
+              <div className="p-2 bg-white rounded-lg border border-green-200">
+                <MessageCircle className="w-4 h-4 mx-auto mb-1 text-green-600" />
+                <div className="text-xs font-medium text-green-800">Comments</div>
+                <div className="text-sm font-bold text-green-900">
+                  {campaign.contentSubmissions?.reduce((total: number, content: any) => 
+                    total + (content.publishedPosts?.reduce((sum: number, post: any) => 
+                      sum + (post.performance?.comments || 0), 0) || 0), 0)?.toLocaleString() || '0'}
+                </div>
+              </div>
+              <div className="p-2 bg-white rounded-lg border border-green-200">
+                <Share2 className="w-4 h-4 mx-auto mb-1 text-green-600" />
+                <div className="text-xs font-medium text-green-800">Shares</div>
+                <div className="text-sm font-bold text-green-900">
+                  {campaign.contentSubmissions?.reduce((total: number, content: any) => 
+                    total + (content.publishedPosts?.reduce((sum: number, post: any) => 
+                      sum + (post.performance?.shares || 0), 0) || 0), 0)?.toLocaleString() || '0'}
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 text-xs text-slate-500">
+              📊 Analytics updated from live social media posts
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Campaign Details */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -903,7 +972,30 @@ function ContentTab({ contentSubmissions, loading, onStatusUpdate, onRefresh }: 
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-slate-900">Content Submissions</h2>
-          <p className="text-slate-600">{contentSubmissions.length} total submissions</p>
+          <div className="flex items-center space-x-4 text-sm text-slate-600">
+            <span>{contentSubmissions.length} total submissions</span>
+            {/* Live Posts Summary */}
+            {(() => {
+              const totalLivePosts = contentSubmissions.reduce((sum, submission) => 
+                sum + (submission.publishedPosts?.length || 0), 0
+              )
+              const postsWithAnalytics = contentSubmissions.reduce((sum, submission) => 
+                sum + (submission.publishedPosts?.filter((post: any) => post.performance)?.length || 0), 0
+              )
+              return totalLivePosts > 0 ? (
+                <div className="flex items-center space-x-2">
+                  <div className="w-1 h-1 bg-slate-400 rounded-full" />
+                  <div className="flex items-center space-x-1 text-green-600">
+                    <ExternalLink className="w-3 h-3" />
+                    <span>{totalLivePosts} live posts</span>
+                  </div>
+                  {postsWithAnalytics > 0 && (
+                    <span className="text-green-700">• {postsWithAnalytics} with analytics</span>
+                  )}
+                </div>
+              ) : null
+            })()} 
+          </div>
         </div>
         <Button variant="outline" onClick={onRefresh} disabled={loading}>
           <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
@@ -966,6 +1058,17 @@ function ContentTab({ contentSubmissions, loading, onStatusUpdate, onRefresh }: 
                   >
                     {submission.status}
                   </Badge>
+                  
+                  {/* Live Posts Indicator - NEW */}
+                  {submission.publishedPosts && submission.publishedPosts.length > 0 && (
+                    <div className="flex items-center space-x-1 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full border border-green-200">
+                      <ExternalLink className="w-3 h-3" />
+                      <span>{submission.publishedPosts.length} Live</span>
+                      {submission.publishedPosts.some((post: any) => post.performance) && (
+                        <div className="w-1 h-1 bg-green-500 rounded-full animate-pulse" title="Analytics Available" />
+                      )}
+                    </div>
+                  )}
                   
                   {submission.status === 'PENDING' && (
                     <div className="flex space-x-2">
@@ -1325,6 +1428,131 @@ function ContentDetailModal({ content, onClose, onStatusChange }: {
                     </div>
                   </div>
                 </div>
+
+                {/* Live URLs Section - NEW */}
+                {content.publishedPosts && content.publishedPosts.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-2">Live Posts & Analytics</label>
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-sm font-medium text-green-900">
+                          📊 {content.publishedPosts.length} Live Post{content.publishedPosts.length !== 1 ? 's' : ''}
+                        </span>
+                        <Badge variant="outline" className="text-xs text-green-700 border-green-300">
+                          Analytics Available
+                        </Badge>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        {content.publishedPosts.map((post: any, index: number) => (
+                          <div key={post.id || index} className="bg-white border border-green-200 rounded-lg p-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center space-x-2">
+                                <Badge variant="outline" className="text-xs">
+                                  {post.platform}
+                                </Badge>
+                                <span className="text-sm font-medium text-green-800">
+                                  {post.postType || 'POST'}
+                                </span>
+                                <span className="text-xs text-green-600">
+                                  {formatSafeDate(post.publishedAt)}
+                                </span>
+                              </div>
+                              <Button variant="ghost" size="sm" asChild className="h-6 px-2">
+                                <a 
+                                  href={post.postUrl} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-green-600 hover:text-green-700"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              </Button>
+                            </div>
+                            
+                            {post.performance && (
+                              <div className="grid grid-cols-4 gap-3 mt-2 text-xs text-green-700">
+                                <div className="flex items-center space-x-1">
+                                  <Eye className="w-3 h-3" />
+                                  <span>{post.performance.views?.toLocaleString() || '0'}</span>
+                                </div>
+                                <div className="flex items-center space-x-1">
+                                  <Heart className="w-3 h-3" />
+                                  <span>{post.performance.likes?.toLocaleString() || '0'}</span>
+                                </div>
+                                <div className="flex items-center space-x-1">
+                                  <MessageCircle className="w-3 h-3" />
+                                  <span>{post.performance.comments?.toLocaleString() || '0'}</span>
+                                </div>
+                                <div className="flex items-center space-x-1">
+                                  <Share2 className="w-3 h-3" />
+                                  <span>{post.performance.shares?.toLocaleString() || '0'}</span>
+                                </div>
+                              </div>
+                            )}
+                            
+                            <div className="mt-2 text-xs text-slate-500 truncate">
+                              <strong>URL:</strong> {post.postUrl}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Total Analytics Summary */}
+                      {content.publishedPosts.some((post: any) => post.performance) && (
+                        <div className="mt-4 p-3 bg-green-100 rounded-lg border border-green-300">
+                          <div className="text-sm font-medium text-green-900 mb-2">📈 Total Performance</div>
+                          <div className="grid grid-cols-4 gap-3 text-sm text-green-700">
+                            <div className="text-center">
+                              <div className="flex items-center justify-center space-x-1 mb-1">
+                                <Eye className="w-4 h-4" />
+                                <span className="font-semibold">
+                                  {content.publishedPosts
+                                    .reduce((sum: number, post: any) => sum + (post.performance?.views || 0), 0)
+                                    .toLocaleString()}
+                                </span>
+                              </div>
+                              <div className="text-xs text-green-600">Views</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="flex items-center justify-center space-x-1 mb-1">
+                                <Heart className="w-4 h-4" />
+                                <span className="font-semibold">
+                                  {content.publishedPosts
+                                    .reduce((sum: number, post: any) => sum + (post.performance?.likes || 0), 0)
+                                    .toLocaleString()}
+                                </span>
+                              </div>
+                              <div className="text-xs text-green-600">Likes</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="flex items-center justify-center space-x-1 mb-1">
+                                <MessageCircle className="w-4 h-4" />
+                                <span className="font-semibold">
+                                  {content.publishedPosts
+                                    .reduce((sum: number, post: any) => sum + (post.performance?.comments || 0), 0)
+                                    .toLocaleString()}
+                                </span>
+                              </div>
+                              <div className="text-xs text-green-600">Comments</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="flex items-center justify-center space-x-1 mb-1">
+                                <Share2 className="w-4 h-4" />
+                                <span className="font-semibold">
+                                  {content.publishedPosts
+                                    .reduce((sum: number, post: any) => sum + (post.performance?.shares || 0), 0)
+                                    .toLocaleString()}
+                                </span>
+                              </div>
+                              <div className="text-xs text-green-600">Shares</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Hashtags */}
                 <div>

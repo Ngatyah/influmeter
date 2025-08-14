@@ -10,7 +10,8 @@ import {
   Star,
   Plus,
   ArrowLeft,
-  
+  Loader2,
+  RefreshCw,
   List,
   ChevronDown,
   X
@@ -21,24 +22,7 @@ import { Input } from '../../components/ui/input'
 import { Badge } from '../../components/ui/badge'
 import { Checkbox } from '../../components/ui/checkbox'
 import NotificationSystem from '../../components/notifications/NotificationSystem'
-
-interface Influencer {
-  id: string
-  name: string
-  username: string
-  avatar: string
-  bio: string
-  followers: string
-  engagement: string
-  location: string
-  niches: string[]
-  platforms: { platform: string; followers: string }[]
-  avgViews: string
-  isVerified: boolean
-  isShortlisted: boolean
-  rating: number
-  priceRange: string
-}
+import { discoveryService, Influencer, DiscoveryFilters } from '../../services/discovery.service'
 
 interface Filters {
   search: string
@@ -57,6 +41,10 @@ export default function DiscoverInfluencers() {
   const [showFilters, setShowFilters] = useState(false)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [influencers, setInfluencers] = useState<Influencer[]>([])
+  const [totalInfluencers, setTotalInfluencers] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
   
   const [filters, setFilters] = useState<Filters>({
     search: '',
@@ -69,69 +57,59 @@ export default function DiscoverInfluencers() {
     verified: false
   })
 
-  // Mock data - replace with API call
-  const [influencers, setInfluencers] = useState<Influencer[]>([
-    {
-      id: '1',
-      name: 'Murugi Munyi',
-      username: '@murugimunyi',
-      avatar: '/api/placeholder/100/100',
-      bio: 'Lifestyle content creator sharing authentic moments from Nairobi. Beauty & wellness enthusiast.',
-      followers: '532K',
-      engagement: '8.4%',
-      location: 'Nairobi, Kenya',
-      niches: ['Lifestyle', 'Beauty', 'Fashion'],
-      platforms: [
-        { platform: 'Instagram', followers: '532K' },
-        { platform: 'TikTok', followers: '245K' }
-      ],
-      avgViews: '45K',
-      isVerified: true,
-      isShortlisted: false,
-      rating: 4.8,
-      priceRange: '$200-500'
-    },
-    {
-      id: '2',
-      name: 'David Tech',
-      username: '@davidtech_ke',
-      avatar: '/api/placeholder/100/100',
-      bio: 'Tech reviewer and gadget enthusiast. Helping East Africans make smart tech choices.',
-      followers: '128K',
-      engagement: '12.1%',
-      location: 'Kampala, Uganda',
-      niches: ['Technology', 'Reviews', 'Gaming'],
-      platforms: [
-        { platform: 'YouTube', followers: '128K' },
-        { platform: 'Instagram', followers: '89K' }
-      ],
-      avgViews: '25K',
-      isVerified: false,
-      isShortlisted: true,
-      rating: 4.6,
-      priceRange: '$150-300'
-    },
-    {
-      id: '3',
-      name: 'Sarah Fitness',
-      username: '@sarahfitness',
-      avatar: '/api/placeholder/100/100',
-      bio: 'Certified fitness trainer empowering women across Africa to live healthier lives.',
-      followers: '245K',
-      engagement: '15.2%',
-      location: 'Lagos, Nigeria',
-      niches: ['Fitness', 'Health', 'Wellness'],
-      platforms: [
-        { platform: 'Instagram', followers: '245K' },
-        { platform: 'TikTok', followers: '156K' }
-      ],
-      avgViews: '38K',
-      isVerified: true,
-      isShortlisted: false,
-      rating: 4.9,
-      priceRange: '$300-600'
+  // Load influencers from API
+  const loadInfluencers = async (resetPage = false) => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const currentPage = resetPage ? 1 : page
+      
+      const discoveryFilters: DiscoveryFilters = {
+        search: filters.search || undefined,
+        minFollowers: filters.minFollowers || undefined,
+        maxFollowers: filters.maxFollowers || undefined,
+        locations: filters.locations.length > 0 ? filters.locations : undefined,
+        niches: filters.niches.length > 0 ? filters.niches : undefined,
+        platforms: filters.platforms.length > 0 ? filters.platforms : undefined,
+        engagementMin: filters.engagementMin || undefined,
+        verified: filters.verified || undefined,
+        page: currentPage,
+        limit: 12,
+      }
+
+      const result = await discoveryService.discoverInfluencers(discoveryFilters)
+      
+      if (resetPage) {
+        setInfluencers(result.influencers)
+        setPage(1)
+      } else {
+        setInfluencers(prev => [...prev, ...result.influencers])
+      }
+      
+      setTotalInfluencers(result.total)
+      setHasMore(result.hasMore)
+    } catch (error) {
+      console.error('Failed to load influencers:', error)
+      setError(error instanceof Error ? error.message : 'Failed to load influencers')
+    } finally {
+      setLoading(false)
     }
-  ])
+  }
+
+  // Load influencers on component mount
+  useEffect(() => {
+    loadInfluencers(true)
+  }, [])
+
+  // Load more influencers when filters change
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      loadInfluencers(true)
+    }, 300)
+
+    return () => clearTimeout(debounceTimer)
+  }, [filters])
 
   const niches = ['Fashion', 'Beauty', 'Technology', 'Fitness', 'Food', 'Travel', 'Lifestyle', 'Gaming', 'Health']
   const locations = ['Kenya', 'Uganda', 'Tanzania', 'Nigeria', 'South Africa', 'Ghana', 'Rwanda']
@@ -150,14 +128,33 @@ export default function DiscoverInfluencers() {
     }))
   }
 
-  const toggleShortlist = (influencerId: string) => {
-    setInfluencers(prev => 
-      prev.map(inf => 
-        inf.id === influencerId 
-          ? { ...inf, isShortlisted: !inf.isShortlisted }
-          : inf
+  const toggleShortlist = async (influencerId: string) => {
+    const influencer = influencers.find(inf => inf.id === influencerId)
+    if (!influencer) return
+
+    try {
+      // Optimistically update the UI
+      setInfluencers(prev => 
+        prev.map(inf => 
+          inf.id === influencerId 
+            ? { ...inf, isShortlisted: !inf.isShortlisted }
+            : inf
+        )
       )
-    )
+
+      // Call the API
+      await discoveryService.toggleShortlist(influencerId, influencer.isShortlisted)
+    } catch (error) {
+      // Revert the optimistic update on error
+      setInfluencers(prev => 
+        prev.map(inf => 
+          inf.id === influencerId 
+            ? { ...inf, isShortlisted: !inf.isShortlisted }
+            : inf
+        )
+      )
+      console.error('Failed to toggle shortlist:', error)
+    }
   }
 
   const clearFilters = () => {
@@ -173,19 +170,43 @@ export default function DiscoverInfluencers() {
     })
   }
 
-  const filteredInfluencers = influencers.filter(influencer => {
-    if (filters.search && !influencer.name.toLowerCase().includes(filters.search.toLowerCase()) && 
-        !influencer.username.toLowerCase().includes(filters.search.toLowerCase())) {
-      return false
+  // Load more influencers
+  const loadMoreInfluencers = async () => {
+    if (!hasMore || loading) return
+    
+    const nextPage = page + 1
+    setPage(nextPage)
+    
+    try {
+      setLoading(true)
+      
+      const discoveryFilters: DiscoveryFilters = {
+        search: filters.search || undefined,
+        minFollowers: filters.minFollowers || undefined,
+        maxFollowers: filters.maxFollowers || undefined,
+        locations: filters.locations.length > 0 ? filters.locations : undefined,
+        niches: filters.niches.length > 0 ? filters.niches : undefined,
+        platforms: filters.platforms.length > 0 ? filters.platforms : undefined,
+        engagementMin: filters.engagementMin || undefined,
+        verified: filters.verified || undefined,
+        page: nextPage,
+        limit: 12,
+      }
+
+      const result = await discoveryService.discoverInfluencers(discoveryFilters)
+      
+      setInfluencers(prev => [...prev, ...result.influencers])
+      setHasMore(result.hasMore)
+    } catch (error) {
+      console.error('Failed to load more influencers:', error)
+      setError(error instanceof Error ? error.message : 'Failed to load more influencers')
+    } finally {
+      setLoading(false)
     }
-    if (filters.niches.length > 0 && !filters.niches.some(niche => influencer.niches.includes(niche))) {
-      return false
-    }
-    if (filters.verified && !influencer.isVerified) {
-      return false
-    }
-    return true
-  })
+  }
+
+  // Since we're using API filtering, we don't need client-side filtering
+  const filteredInfluencers = influencers
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -199,7 +220,13 @@ export default function DiscoverInfluencers() {
             </Button>
             <div>
               <h1 className="text-2xl font-semibold text-slate-900">Discover Influencers</h1>
-              <p className="text-slate-600">{filteredInfluencers.length} influencers found</p>
+              <p className="text-slate-600">
+                {loading && influencers.length === 0 ? (
+                  'Loading influencers...'
+                ) : (
+                  `${influencers.length} of ${totalInfluencers} influencers`
+                )}
+              </p>
             </div>
           </div>
           
@@ -354,6 +381,41 @@ export default function DiscoverInfluencers() {
 
         {/* Main Content */}
         <main className="flex-1 p-6 min-w-0">
+          {/* Error Display */}
+          {error && (
+            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="text-red-600">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <p className="text-sm text-red-800">{error}</p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => loadInfluencers(true)}
+                    disabled={loading}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setError(null)}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    ×
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {viewMode === 'grid' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredInfluencers.map((influencer) => (
@@ -377,11 +439,29 @@ export default function DiscoverInfluencers() {
           )}
 
           {/* Load More */}
-          {filteredInfluencers.length > 0 && (
+          {hasMore && filteredInfluencers.length > 0 && (
             <div className="mt-8 text-center">
-              <Button variant="outline" disabled={loading}>
-                {loading ? 'Loading...' : 'Load More Influencers'}
+              <Button 
+                variant="outline" 
+                disabled={loading}
+                onClick={loadMoreInfluencers}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  'Load More Influencers'
+                )}
               </Button>
+            </div>
+          )}
+
+          {/* No more results */}
+          {!hasMore && filteredInfluencers.length > 0 && (
+            <div className="mt-8 text-center text-slate-600">
+              <p>You've seen all available influencers</p>
             </div>
           )}
 

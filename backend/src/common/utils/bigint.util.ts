@@ -40,6 +40,11 @@ export function convertBigIntsToNumbers(obj: any): any {
   }
 
   if (typeof obj === 'object') {
+    // Preserve Date objects
+    if (obj instanceof Date) {
+      return obj;
+    }
+
     // Handle Decimal.js objects with {s, e, d} structure
     if (obj.s !== undefined && obj.e !== undefined && obj.d !== undefined) {
       // This appears to be a Decimal.js object
@@ -49,7 +54,7 @@ export function convertBigIntsToNumbers(obj: any): any {
       return 0; // Fallback for invalid decimal
     }
 
-    // Handle Date objects that might be empty objects
+    // Handle empty objects (but not Date objects)
     if (Object.keys(obj).length === 0) {
       return null; // Convert empty objects to null
     }

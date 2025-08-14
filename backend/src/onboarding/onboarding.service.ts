@@ -171,6 +171,8 @@ export class OnboardingService {
         companySize: data.companySize as any,
         description: data.description,
         logoUrl: data.logoUrl,
+        contactName: data.contactName,
+        contactPhone: data.contactPhone,
       },
       update: {
         companyName: data.companyName,
@@ -178,6 +180,8 @@ export class OnboardingService {
         companySize: data.companySize as any,
         description: data.description,
         logoUrl: data.logoUrl,
+        contactName: data.contactName,
+        contactPhone: data.contactPhone,
       },
     });
 

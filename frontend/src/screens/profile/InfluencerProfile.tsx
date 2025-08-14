@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { 
   ArrowLeft, 
@@ -20,150 +20,51 @@ import {
   ExternalLink,
   Play,
   Grid3X3,
-  BarChart3
+  BarChart3,
+  Loader2,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { formatSafeDate } from '../../utils/dateUtils'
+import { profileService, InfluencerProfile as InfluencerProfileType } from '../../services/profile.service'
+import { inquiryService } from '../../services/inquiry.service'
+import ContactInfluencerModal from '../../components/ContactInfluencerModal'
 
 export default function InfluencerProfile() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState('overview')
+  const [influencer, setInfluencer] = useState<InfluencerProfileType | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [showContactModal, setShowContactModal] = useState(false)
+  const [selectedPackage, setSelectedPackage] = useState<any>(null)
 
-  // Mock influencer data - replace with API call
-  const influencer = {
-    id,
-    name: 'Murugi Munyi',
-    username: '@murugimunyi',
-    avatar: '/api/placeholder/150/150',
-    coverImage: '/api/placeholder/800/300',
-    bio: 'Lifestyle & Beauty Content Creator | Empowering women through authentic storytelling | Based in Nairobi, Kenya 🇰🇪',
-    location: 'Nairobi, Kenya',
-    verified: true,
-    joinedDate: '2023-03-15',
-    category: 'Lifestyle & Beauty',
-    languages: ['English', 'Swahili'],
+  const loadProfile = async () => {
+    if (!id) return
     
-    // Social media stats
-    socialMedia: {
-      instagram: {
-        handle: '@murugimunyi',
-        followers: 532000,
-        posts: 1247,
-        engagement: 8.4
-      },
-      tiktok: {
-        handle: '@murugimunyi',
-        followers: 285000,
-        posts: 456,
-        engagement: 12.1
-      },
-      youtube: {
-        handle: 'Murugi Munyi',
-        followers: 125000,
-        posts: 89,
-        engagement: 6.8
-      }
-    },
+    try {
+      setLoading(true)
+      setError(null)
+      const profileData = await profileService.getInfluencerProfile(id)
+      setInfluencer(profileData)
+    } catch (error) {
+      console.error('Failed to load influencer profile:', error)
+      setError(error instanceof Error ? error.message : 'Failed to load profile')
+    } finally {
+      setLoading(false)
+    }
+  }
 
-    // Performance metrics
-    metrics: {
-      totalReach: 1200000,
-      avgEngagement: 9.1,
-      totalCampaigns: 24,
-      completionRate: 96,
-      responseTime: '2 hours',
-      trustScore: 94
-    },
+  useEffect(() => {
+    loadProfile()
+  }, [id])
 
-    // Rates and packages
-    packages: [
-      {
-        id: 1,
-        platform: 'Instagram',
-        type: 'Story (24h)',
-        price: 150,
-        deliverables: ['1 Instagram Story', 'Swipe-up link', 'Analytics report']
-      },
-      {
-        id: 2,
-        platform: 'Instagram',
-        type: 'Feed Post',
-        price: 350,
-        deliverables: ['1 Feed Post', '3 Instagram Stories', 'Analytics report']
-      },
-      {
-        id: 3,
-        platform: 'TikTok',
-        type: 'Video',
-        price: 280,
-        deliverables: ['1 TikTok Video', 'Cross-post to Instagram', 'Analytics report']
-      },
-      {
-        id: 4,
-        platform: 'YouTube',
-        type: 'Integration',
-        price: 800,
-        deliverables: ['30-60s product integration', 'Dedicated post', 'Analytics report']
-      }
-    ],
-
-    // Recent work portfolio
-    portfolio: [
-      {
-        id: 1,
-        title: 'NIVEA Summer Campaign',
-        brand: 'NIVEA Kenya',
-        platform: 'Instagram',
-        type: 'Reel + Stories',
-        thumbnail: '/api/placeholder/300/300',
-        metrics: { views: 85000, likes: 7200, engagement: 8.5 },
-        date: '2024-04-20'
-      },
-      {
-        id: 2,
-        title: 'Safaricom Home Fiber',
-        brand: 'Safaricom',
-        platform: 'TikTok',
-        type: 'Video',
-        thumbnail: '/api/placeholder/300/300',
-        metrics: { views: 120000, likes: 12500, engagement: 10.4 },
-        date: '2024-04-15'
-      },
-      {
-        id: 3,
-        title: 'Laptop Review',
-        brand: 'TechHub Africa',
-        platform: 'YouTube',
-        type: 'Review Video',
-        thumbnail: '/api/placeholder/300/300',
-        metrics: { views: 45000, likes: 3200, engagement: 7.1 },
-        date: '2024-04-10'
-      }
-    ],
-
-    // Reviews and testimonials
-    reviews: [
-      {
-        id: 1,
-        brand: 'NIVEA Kenya',
-        rating: 5,
-        comment: 'Excellent collaboration! Murugi delivered high-quality content on time and exceeded our expectations.',
-        campaign: 'Summer Skincare Launch',
-        date: '2024-04-22'
-      },
-      {
-        id: 2,
-        brand: 'Safaricom',
-        rating: 5,
-        comment: 'Professional, creative, and authentic. The content performance was outstanding!',
-        campaign: 'Home Fiber Campaign',
-        date: '2024-04-16'
-      }
-    ]
+  const retryLoad = () => {
+    loadProfile()
   }
 
   const formatNumber = (num: number) => {
@@ -173,6 +74,60 @@ export default function InfluencerProfile() {
   }
 
   const formatCurrency = (amount: number) => `$${amount}`
+
+  const handleGetQuote = (pkg: any) => {
+    setSelectedPackage(pkg)
+    setShowContactModal(true)
+  }
+
+  const handleInquirySubmit = async (inquiryData: any) => {
+    await inquiryService.createInquiry(inquiryData)
+    setShowContactModal(false)
+    setSelectedPackage(null)
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+        <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm p-8">
+          <div className="flex flex-col items-center space-y-4">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <p className="text-slate-600">Loading influencer profile...</p>
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  // Error state
+  if (error || !influencer) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+        <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm p-8 max-w-md">
+          <div className="flex flex-col items-center space-y-4 text-center">
+            <AlertCircle className="w-12 h-12 text-red-500" />
+            <div>
+              <h3 className="font-semibold text-slate-900 mb-2">Profile Not Found</h3>
+              <p className="text-slate-600 mb-4">
+                {error || 'The influencer profile you are looking for does not exist or is not publicly available.'}
+              </p>
+            </div>
+            <div className="flex space-x-3">
+              <Button variant="outline" onClick={() => navigate(-1)}>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Go Back
+              </Button>
+              <Button onClick={retryLoad}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Retry
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -331,7 +286,7 @@ export default function InfluencerProfile() {
 
         {/* Main Content Tabs */}
         <div className="px-6 pb-8">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <Tabs defaultValue="overview" key={influencer?.id}>
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="overview">Platform Stats</TabsTrigger>
               <TabsTrigger value="portfolio">Portfolio</TabsTrigger>
@@ -382,49 +337,62 @@ export default function InfluencerProfile() {
             </TabsContent>
 
             <TabsContent value="portfolio" className="mt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {influencer.portfolio.map((work) => (
-                  <Card key={work.id} className="shadow-lg border-0 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-shadow cursor-pointer">
-                    <div className="relative aspect-square">
-                      <img 
-                        src={work.thumbnail} 
-                        alt={work.title}
-                        className="w-full h-full object-cover rounded-t-lg"
-                      />
-                      <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-all flex items-center justify-center opacity-0 hover:opacity-100">
-                        <Play className="w-12 h-12 text-white" />
-                      </div>
-                    </div>
-                    <CardContent className="p-4">
-                      <h3 className="font-semibold text-slate-900 mb-1">{work.title}</h3>
-                      <p className="text-sm text-slate-600 mb-2">{work.brand}</p>
-                      <div className="flex items-center justify-between text-xs text-slate-500 mb-3">
-                        <span>{work.platform} • {work.type}</span>
-                        <span>{formatSafeDate(work.date)}</span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 text-xs">
-                        <div>
-                          <p className="text-slate-600">Views</p>
-                          <p className="font-semibold">{formatNumber(work.metrics.views)}</p>
-                        </div>
-                        <div>
-                          <p className="text-slate-600">Likes</p>
-                          <p className="font-semibold">{formatNumber(work.metrics.likes)}</p>
-                        </div>
-                        <div>
-                          <p className="text-slate-600">Eng Rate</p>
-                          <p className="font-semibold text-green-600">{work.metrics.engagement}%</p>
+              {influencer.portfolio.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {influencer.portfolio.map((work) => (
+                    <Card key={work.id} className="shadow-lg border-0 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-shadow cursor-pointer">
+                      <div className="relative aspect-square">
+                        <img 
+                          src={work.thumbnail} 
+                          alt={work.title}
+                          className="w-full h-full object-cover rounded-t-lg"
+                        />
+                        <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-all flex items-center justify-center opacity-0 hover:opacity-100">
+                          <Play className="w-12 h-12 text-white" />
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                      <CardContent className="p-4">
+                        <h3 className="font-semibold text-slate-900 mb-1">{work.title}</h3>
+                        <p className="text-sm text-slate-600 mb-2">{work.brand}</p>
+                        <div className="flex items-center justify-between text-xs text-slate-500 mb-3">
+                          <span>{work.platform} • {work.type}</span>
+                          <span>{formatSafeDate(work.date)}</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          <div>
+                            <p className="text-slate-600">Views</p>
+                            <p className="font-semibold">{formatNumber(work.metrics.views)}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-600">Likes</p>
+                            <p className="font-semibold">{formatNumber(work.metrics.likes)}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-600">Eng Rate</p>
+                            <p className="font-semibold text-green-600">{work.metrics.engagement}%</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+                  <CardContent className="p-12 text-center">
+                    <Briefcase className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-slate-700 mb-2">No Portfolio Items Yet</h3>
+                    <p className="text-slate-600">
+                      This influencer hasn't completed any campaigns yet. Portfolio will automatically populate with completed campaign work.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             <TabsContent value="packages" className="mt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {influencer.packages.map((pkg) => (
+              {influencer.packages.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {influencer.packages.map((pkg) => (
                   <Card key={pkg.id} className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
                     <CardHeader>
                       <div className="flex items-center justify-between">
@@ -434,7 +402,7 @@ export default function InfluencerProfile() {
                             {formatCurrency(pkg.price)}
                           </p>
                         </div>
-                        <Button>
+                        <Button onClick={() => handleGetQuote(pkg)}>
                           Get Quote
                         </Button>
                       </div>
@@ -451,8 +419,21 @@ export default function InfluencerProfile() {
                       </ul>
                     </CardContent>
                   </Card>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+                  <CardContent className="p-12 text-center">
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <span className="text-2xl">📦</span>
+                    </div>
+                    <h3 className="text-lg font-semibold text-slate-700 mb-2">No Packages Available</h3>
+                    <p className="text-slate-600">
+                      This influencer hasn't set up any service packages yet. Check back later for collaboration opportunities.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             <TabsContent value="reviews" className="mt-6">
@@ -484,6 +465,25 @@ export default function InfluencerProfile() {
           </Tabs>
         </div>
       </div>
+
+      {/* Contact Modal */}
+      {showContactModal && selectedPackage && influencer && (
+        <ContactInfluencerModal
+          isOpen={showContactModal}
+          onClose={() => {
+            setShowContactModal(false)
+            setSelectedPackage(null)
+          }}
+          influencer={{
+            id: influencer.id,
+            name: influencer.name,
+            username: influencer.username,
+            avatar: influencer.avatar
+          }}
+          packageDetails={selectedPackage}
+          onSubmit={handleInquirySubmit}
+        />
+      )}
     </div>
   )
 }

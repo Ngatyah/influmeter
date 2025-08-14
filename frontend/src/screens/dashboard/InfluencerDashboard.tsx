@@ -16,7 +16,8 @@ import {
   ArrowUpRight,
   Search,
   Upload,
-  Target
+  Target,
+  Mail
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
@@ -399,6 +400,7 @@ export default function InfluencerDashboard() {
             <NavItem icon={Camera} label="Content Library" onClick={() => navigate('/content')} />
             <NavItem icon={DollarSign} label="Earnings" onClick={() => navigate('/earnings')} />
             <NavItem icon={TrendingUp} label="Analytics" onClick={() => navigate('/analytics')} />
+            <NavItem icon={Mail} label="Inquiries" onClick={() => navigate('/inquiries')} />
             <NavItem icon={Settings} label="Settings" onClick={() => navigate('/settings')} />
           </nav>
 

@@ -19,7 +19,7 @@
     --muted: 245 245 245;
     --muted-foreground: 95 99 104; /* #5F6368 */
     --accent: 244 180 0; /* #F4B400 - Tuscan Yellow */
-    --accent-foreground: 255 255 255;
+    --accent-foreground: 32 33 36; /* #202124 - Dark text for better contrast on yellow */
     --destructive: 234 67 53; /* #EA4335 - Flame Red */
     --destructive-foreground: 255 255 255;
     --border: 229 231 235;

@@ -4,14 +4,14 @@ import { AuthGuard } from '@nestjs/passport';
 import { UsersService } from './users.service';
 
 @ApiTags('Users')
-@ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'))
 @Controller('users')
 export class UsersController {
   constructor(private usersService: UsersService) {}
 
   @Get('profile')
   @ApiOperation({ summary: 'Get current user profile' })
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
   async getProfile(@Req() req: any) {
     return this.usersService.findById(req.user.id);
   }
@@ -21,5 +21,12 @@ export class UsersController {
   @ApiParam({ name: 'id', description: 'User ID' })
   async getUserById(@Param('id') id: string) {
     return this.usersService.findById(id);
+  }
+
+  @Get(':id/influencer-profile')
+  @ApiOperation({ summary: 'Get comprehensive influencer public profile' })
+  @ApiParam({ name: 'id', description: 'Influencer User ID' })
+  async getInfluencerProfile(@Param('id') id: string) {
+    return this.usersService.getInfluencerPublicProfile(id);
   }
 }

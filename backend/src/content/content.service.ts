@@ -145,6 +145,11 @@ export class ContentService {
           },
           files: true,
           performance: true,
+          publishedPosts: {
+            include: {
+              performance: true,
+            },
+          },
         },
       }),
       this.prisma.contentSubmission.count({ where }),
@@ -215,6 +220,11 @@ export class ContentService {
           },
           files: true,
           performance: true,
+          publishedPosts: {
+            include: {
+              performance: true,
+            },
+          },
         },
       }),
       this.prisma.contentSubmission.count({ where }),
@@ -253,6 +263,11 @@ export class ContentService {
         },
         files: true,
         performance: true,
+        publishedPosts: {
+          include: {
+            performance: true,
+          },
+        },
       },
     });
 
@@ -316,6 +331,11 @@ export class ContentService {
         },
         files: true,
         performance: true,
+        publishedPosts: {
+          include: {
+            performance: true,
+          },
+        },
       },
     });
 
@@ -364,6 +384,11 @@ export class ContentService {
         },
         files: true,
         performance: true,
+        publishedPosts: {
+          include: {
+            performance: true,
+          },
+        },
       },
     });
 

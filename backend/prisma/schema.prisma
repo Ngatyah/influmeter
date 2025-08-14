@@ -50,6 +50,15 @@ enum ApplicationStatus {
   REJECTED
 }
 
+enum InquiryStatus {
+  PENDING
+  CONTACTED
+  NEGOTIATING
+  ACCEPTED
+  DECLINED
+  COMPLETED
+}
+
 enum ParticipantStatus {
   ACTIVE
   COMPLETED
@@ -116,6 +125,10 @@ model User {
   shortlists             Shortlist[]
   shortlistedBy          Shortlist[]              @relation("ShortlistedInfluencer")
   paymentMethods         PaymentMethod[]
+  portfolioItems         PortfolioItem[]
+  packages               InfluencerPackage[]
+  brandInquiries         Inquiry[]             @relation("BrandInquiries")
+  influencerInquiries    Inquiry[]             @relation("InfluencerInquiries")
 
   @@map("users")
 }
@@ -175,6 +188,8 @@ model BrandProfile {
   companySize     CompanySize? @map("company_size")
   logoUrl         String?     @map("logo_url")
   description     String?
+  contactName     String?     @map("contact_name")
+  contactPhone    String?     @map("contact_phone")
   marketingGoals  String[]    @default([]) @map("marketing_goals")
   budgetRange     String?     @map("budget_range")
   targetAudience  Json        @default("{}") @map("target_audience")
@@ -200,6 +215,7 @@ model Campaign {
   status                 CampaignStatus @default(DRAFT)
   requirements           Json           @default("{}")
   targetCriteria         Json           @default("{}") @map("target_criteria")
+  maxInfluencers         Int?           @map("max_influencers")
   
   // Approval Settings
   requiresApproval       Boolean        @default(true) @map("requires_approval")
@@ -492,4 +508,86 @@ model SocialAccount {
 
   @@unique([userId, platform])
   @@map("social_accounts")
+}
+
+// Portfolio Management Models
+model PortfolioItem {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  title       String
+  description String?
+  brandName   String   @map("brand_name")
+  platform    String
+  contentType String   @map("content_type")
+  thumbnailUrl String?  @map("thumbnail_url")
+  postUrl     String?  @map("post_url")
+  
+  // Metrics
+  views       BigInt?  @default(0)
+  likes       BigInt?  @default(0)
+  shares      BigInt?  @default(0)
+  comments    BigInt?  @default(0)
+  engagement  Decimal? @db.Decimal(5, 2)
+  
+  // Dates
+  publishedAt DateTime? @map("published_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("portfolio_items")
+}
+
+// Packages/Pricing Models
+model InfluencerPackage {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  platform     String
+  packageType  String   @map("package_type")
+  title        String?
+  description  String?
+  price        Decimal  @db.Decimal(10, 2)
+  deliverables Json     @default("[]")
+  
+  // Package details
+  turnaroundDays Int?    @map("turnaround_days")
+  revisions      Int?    @default(1)
+  isActive       Boolean @default(true) @map("is_active")
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inquiries Inquiry[]
+  
+  @@map("influencer_packages")
+}
+
+// Inquiry Models
+model Inquiry {
+  id             String        @id @default(uuid())
+  brandId        String        @map("brand_id")
+  influencerId   String        @map("influencer_id")
+  packageId      String?       @map("package_id")
+  subject        String
+  message        String
+  brandName      String        @map("brand_name")
+  brandEmail     String        @map("brand_email")
+  brandPhone     String?       @map("brand_phone")
+  campaignBudget Decimal?      @db.Decimal(10, 2) @map("campaign_budget")
+  timeline       String?
+  requirements   Json          @default("{}")
+  status         InquiryStatus @default(PENDING)
+  brandResponse  String?       @map("brand_response")
+  respondedAt    DateTime?     @map("responded_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  brand      User               @relation("BrandInquiries", fields: [brandId], references: [id], onDelete: Cascade)
+  influencer User               @relation("InfluencerInquiries", fields: [influencerId], references: [id], onDelete: Cascade)
+  package    InfluencerPackage? @relation(fields: [packageId], references: [id], onDelete: SetNull)
+
+  @@map("inquiries")
 }

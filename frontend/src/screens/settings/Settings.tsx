@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { 
   ArrowLeft, 
@@ -20,7 +20,13 @@ import {
   Moon,
   Sun,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Briefcase,
+  Package,
+  Plus,
+  Edit,
+  Trash2,
+  DollarSign
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
@@ -29,6 +35,8 @@ import { Badge } from '../../components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { useAppSelector, useAppDispatch } from '../../hooks/redux'
 import { logoutUser } from '../../store/slices/authSlice'
+import { portfolioManagementService, PortfolioItem, CreatePortfolioItemData } from '../../services/portfolio.service'
+import { packagesManagementService, InfluencerPackage, CreatePackageData } from '../../services/packages.service'
 
 export default function Settings() {
   const navigate = useNavigate()
@@ -70,6 +78,30 @@ export default function Settings() {
     paymentAlerts: user?.preferences?.paymentAlerts || true
   })
 
+  // Portfolio state (for influencers only)
+  const [portfolio, setPortfolio] = useState<PortfolioItem[]>([])
+  const [portfolioLoading, setPortfolioLoading] = useState(false)
+
+  // Packages state (for influencers only)  
+  const [packages, setPackages] = useState<InfluencerPackage[]>([])
+  const [packagesLoading, setPackagesLoading] = useState(false)
+
+  // Form states
+  const [showPackageForm, setShowPackageForm] = useState(false)
+  const [editingPackage, setEditingPackage] = useState<InfluencerPackage | null>(null)
+
+  const [packageForm, setPackageForm] = useState<CreatePackageData>({
+    platform: 'Instagram',
+    packageType: 'Post',
+    title: '',
+    description: '',
+    price: 0,
+    deliverables: [''],
+    turnaroundDays: 3,
+    revisions: 1,
+    isActive: true
+  })
+
   const handleProfileUpdate = async () => {
     // Simulate API call
     console.log('Updating profile:', profileData)
@@ -107,6 +139,100 @@ export default function Settings() {
     navigate('/login')
   }
 
+  // Load portfolio data
+  const loadPortfolio = async () => {
+    if (user?.role !== 'INFLUENCER') return
+    
+    try {
+      setPortfolioLoading(true)
+      const data = await portfolioManagementService.getMyPortfolio()
+      setPortfolio(data)
+    } catch (error) {
+      console.error('Failed to load portfolio:', error)
+    } finally {
+      setPortfolioLoading(false)
+    }
+  }
+
+  // Load packages data  
+  const loadPackages = async () => {
+    if (user?.role !== 'INFLUENCER') return
+    
+    try {
+      setPackagesLoading(true)
+      const data = await packagesManagementService.getMyPackages()
+      setPackages(data)
+    } catch (error) {
+      console.error('Failed to load packages:', error)
+    } finally {
+      setPackagesLoading(false)
+    }
+  }
+
+  // Load data on component mount
+  useEffect(() => {
+    if (user?.role === 'INFLUENCER') {
+      loadPortfolio()
+      loadPackages()
+    }
+  }, [user?.role])
+
+  // Portfolio is now auto-generated from campaigns - no manual CRUD needed
+
+  // Package form handlers  
+  const handlePackageSubmit = async () => {
+    try {
+      const submitData = {
+        ...packageForm,
+        deliverables: packageForm.deliverables.filter(d => d.trim() !== '')
+      }
+      
+      if (editingPackage) {
+        await packagesManagementService.updatePackage(editingPackage.id!, submitData)
+      } else {
+        await packagesManagementService.createPackage(submitData)
+      }
+      
+      // Reset form and reload data
+      setShowPackageForm(false)
+      setEditingPackage(null)
+      setPackageForm({
+        platform: 'Instagram', packageType: 'Post', title: '', description: '', 
+        price: 0, deliverables: [''], turnaroundDays: 3, revisions: 1, isActive: true
+      })
+      loadPackages()
+    } catch (error) {
+      console.error('Failed to save package:', error)
+    }
+  }
+
+  const handlePackageEdit = (pkg: InfluencerPackage) => {
+    setEditingPackage(pkg)
+    setPackageForm({
+      platform: pkg.platform,
+      packageType: pkg.packageType,
+      title: pkg.title || '',
+      description: pkg.description || '',
+      price: pkg.price,
+      deliverables: pkg.deliverables.length > 0 ? pkg.deliverables : [''],
+      turnaroundDays: pkg.turnaroundDays || 3,
+      revisions: pkg.revisions || 1,
+      isActive: pkg.isActive !== false
+    })
+    setShowPackageForm(true)
+  }
+
+  const handlePackageDelete = async (id: string) => {
+    if (confirm('Are you sure you want to delete this package?')) {
+      try {
+        await packagesManagementService.deletePackage(id)
+        loadPackages()
+      } catch (error) {
+        console.error('Failed to delete package:', error)
+      }
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Header */}
@@ -127,7 +253,7 @@ export default function Settings() {
 
       <div className="max-w-4xl mx-auto px-6 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className={`grid w-full ${user?.role === 'INFLUENCER' ? 'grid-cols-6' : 'grid-cols-4'}`}>
             <TabsTrigger value="profile" className="flex items-center space-x-2">
               <User className="w-4 h-4" />
               <span className="hidden sm:inline">Profile</span>
@@ -144,6 +270,18 @@ export default function Settings() {
               <Bell className="w-4 h-4" />
               <span className="hidden sm:inline">Notifications</span>
             </TabsTrigger>
+            {user?.role === 'INFLUENCER' && (
+              <>
+                <TabsTrigger value="portfolio" className="flex items-center space-x-2">
+                  <Briefcase className="w-4 h-4" />
+                  <span className="hidden sm:inline">Portfolio</span>
+                </TabsTrigger>
+                <TabsTrigger value="packages" className="flex items-center space-x-2">
+                  <Package className="w-4 h-4" />
+                  <span className="hidden sm:inline">Packages</span>
+                </TabsTrigger>
+              </>
+            )}
           </TabsList>
 
           {/* Profile Settings */}
@@ -553,10 +691,239 @@ export default function Settings() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Portfolio Management (Influencers Only) */}
+          {user?.role === 'INFLUENCER' && (
+            <TabsContent value="portfolio" className="mt-6">
+              <div className="space-y-6">
+                <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle>My Portfolio</CardTitle>
+                      <p className="text-sm text-slate-600 mt-1">Automatically generated from your completed campaign work</p>
+                    </div>
+                    <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
+                      <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                      Auto-Generated
+                    </Badge>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 gap-6">
+                      {portfolio.map((item) => (
+                        <div key={item.id} className="border rounded-xl p-6 bg-white/50 shadow-sm hover:shadow-md transition-shadow">
+                          {/* Campaign Header */}
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-center space-x-3">
+                              {item.brandLogo && (
+                                <img
+                                  src={item.brandLogo}
+                                  alt={item.brandName}
+                                  className="w-12 h-12 rounded-lg object-cover"
+                                />
+                              )}
+                              <div>
+                                <h3 className="font-semibold text-slate-900 text-lg">{item.title}</h3>
+                                <p className="text-sm text-slate-600">{item.brandName}</p>
+                                <div className="flex items-center space-x-2 mt-1">
+                                  <Badge className={`${portfolioManagementService.getPlatformInfo(item.platform).bgColor} ${portfolioManagementService.getPlatformInfo(item.platform).color}`}>
+                                    {portfolioManagementService.getPlatformInfo(item.platform).icon} {item.platform}
+                                  </Badge>
+                                  <Badge variant="outline">{item.contentType}</Badge>
+                                  <Badge className={item.status === 'PAID' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}>
+                                    {item.status === 'PAID' ? '💰 Paid' : '✅ Completed'}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+                            {item.amount && (
+                              <div className="text-right">
+                                <p className="text-lg font-bold text-green-600">${item.amount}</p>
+                                <p className="text-xs text-slate-500">Earned</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Performance Metrics */}
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 p-4 bg-slate-50 rounded-lg">
+                            <div className="text-center">
+                              <p className="text-lg font-semibold text-slate-900">{portfolioManagementService.formatNumber(item.totalPerformance.views)}</p>
+                              <p className="text-xs text-slate-500">Views</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-lg font-semibold text-slate-900">{portfolioManagementService.formatNumber(item.totalPerformance.likes)}</p>
+                              <p className="text-xs text-slate-500">Likes</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-lg font-semibold text-slate-900">{portfolioManagementService.formatNumber(item.totalPerformance.comments)}</p>
+                              <p className="text-xs text-slate-500">Comments</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-lg font-semibold text-slate-900">{item.totalPerformance.avgEngagementRate}%</p>
+                              <p className="text-xs text-slate-500">Engagement</p>
+                            </div>
+                          </div>
+
+                          {/* Published Posts */}
+                          {item.publishedPosts && item.publishedPosts.length > 0 && (
+                            <div className="space-y-2">
+                              <h4 className="font-medium text-slate-700 text-sm">Published Content:</h4>
+                              {item.publishedPosts.map((post, index) => (
+                                <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                                  <div className="flex items-center space-x-3">
+                                    <span className="text-lg">{portfolioManagementService.getPlatformInfo(post.platform).icon}</span>
+                                    <div>
+                                      <p className="font-medium text-sm text-slate-900">{post.platform} {post.postType}</p>
+                                      <p className="text-xs text-slate-500">
+                                        {new Date(post.publishedAt).toLocaleDateString()} • 
+                                        <span className={`ml-1 ${post.status === 'VERIFIED' ? 'text-green-600' : 'text-yellow-600'}`}>
+                                          {post.status === 'VERIFIED' ? '✓ Verified' : '⏳ Pending'}
+                                        </span>
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center space-x-4 text-xs text-slate-500">
+                                    {post.performance && (
+                                      <>
+                                        <span>{portfolioManagementService.formatNumber(post.performance.views)} views</span>
+                                        <span>{post.performance.engagementRate}% ER</span>
+                                      </>
+                                    )}
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => window.open(post.postUrl, '_blank')}
+                                    >
+                                      View Post
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Campaign Details */}
+                          <div className="mt-4 pt-4 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+                            <span>Submitted: {new Date(item.submittedAt).toLocaleDateString()}</span>
+                            <span>
+                              {item.completedAt && `Completed: ${new Date(item.completedAt).toLocaleDateString()}`}
+                              {item.paidAt && ` • Paid: ${new Date(item.paidAt).toLocaleDateString()}`}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {portfolio.length === 0 && (
+                      <div className="text-center py-12">
+                        <Briefcase className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                        <h3 className="text-lg font-semibold text-slate-700 mb-2">No Portfolio Items Yet</h3>
+                        <p className="text-slate-600 mb-6 max-w-md mx-auto">
+                          Your portfolio will automatically populate as you complete campaigns. 
+                          Start by applying to campaigns and submitting content!
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                          <Button onClick={() => navigate('/campaigns/browse')} className="bg-blue-600 hover:bg-blue-700">
+                            Browse Campaigns
+                          </Button>
+                          <Button variant="outline" onClick={() => navigate('/dashboard/INFLUENCER')}>
+                            View Dashboard
+                          </Button>
+                        </div>
+                        
+                        <div className="mt-8 p-4 bg-blue-50 rounded-lg max-w-lg mx-auto">
+                          <p className="text-sm text-blue-800">
+                            <strong>💡 How it works:</strong> Complete campaigns → Submit content → Add live URLs → Portfolio updates automatically with real performance data!
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Info Box about Automatic Portfolio */}
+                    {portfolio.length > 0 && (
+                      <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                        <div className="flex items-start space-x-3">
+                          <div className="flex-shrink-0">
+                            <span className="text-blue-500 text-lg">ℹ️</span>
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-blue-900">Performance Data</h4>
+                            <p className="text-sm text-blue-700 mt-1">
+                              Performance metrics are currently mocked. Once OAuth integration is complete, 
+                              real-time data from Instagram, TikTok, YouTube, and other platforms will be displayed automatically.
+                            </p>
+                            <p className="text-xs text-blue-600 mt-2">
+                              📊 <strong>Coming Soon:</strong> Live views, likes, comments, shares, and engagement rates from your actual posts!
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          )}
+
+          {/* Packages Management (Influencers Only) */}
+          {user?.role === 'INFLUENCER' && (
+            <TabsContent value="packages" className="mt-6">
+              <div className="space-y-6">
+                <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle>My Packages & Rates</CardTitle>
+                    <Button onClick={() => setShowPackageForm(true)}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Package
+                    </Button>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {packages.map((pkg) => (
+                        <div key={pkg.id} className="border rounded-lg p-4 bg-white/50">
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <h3 className="font-semibold text-slate-900">{pkg.platform} - {pkg.packageType}</h3>
+                              <p className="text-2xl font-bold text-green-600">${pkg.price}</p>
+                            </div>
+                            <div className="flex space-x-2">
+                              <Button size="sm" variant="ghost" onClick={() => handlePackageEdit(pkg)}>
+                                <Edit className="w-3 h-3" />
+                              </Button>
+                              <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700" onClick={() => handlePackageDelete(pkg.id!)}>
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-xs text-slate-600 font-medium">Deliverables:</p>
+                            {pkg.deliverables.map((item, index) => (
+                              <p key={index} className="text-xs text-slate-500">• {item}</p>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {packages.length === 0 && (
+                      <div className="text-center py-8">
+                        <Package className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                        <p className="text-slate-600 mb-4">No packages configured yet</p>
+                        <Button onClick={() => setShowPackageForm(true)}>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Create Your First Package
+                        </Button>
+                      </div>
+                    )}
+                    
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          )}
         </Tabs>
 
         {/* Logout Section */}
-        <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm mt-8">
+        <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm mt-8 relative z-10">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -571,6 +938,191 @@ export default function Settings() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Package Form Modal - Moved to end for proper z-index */}
+      {showPackageForm && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[9999]"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowPackageForm(false)
+              setEditingPackage(null)
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto relative z-[10000]">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">
+                {editingPackage ? 'Edit Package' : 'Add Package'}
+              </h3>
+              <Button variant="ghost" size="sm" onClick={() => {
+                setShowPackageForm(false)
+                setEditingPackage(null)
+              }}>
+                ✕
+              </Button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Platform *</label>
+                  <select
+                    value={packageForm.platform}
+                    onChange={(e) => setPackageForm({...packageForm, platform: e.target.value})}
+                    className="w-full p-2 border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="Instagram">Instagram</option>
+                    <option value="YouTube">YouTube</option>
+                    <option value="TikTok">TikTok</option>
+                    <option value="Twitter">Twitter</option>
+                    <option value="Facebook">Facebook</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Package Type *</label>
+                  <select
+                    value={packageForm.packageType}
+                    onChange={(e) => setPackageForm({...packageForm, packageType: e.target.value})}
+                    className="w-full p-2 border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="Post">Post</option>
+                    <option value="Story">Story</option>
+                    <option value="Reel">Reel</option>
+                    <option value="Video">Video</option>
+                    <option value="Campaign">Full Campaign</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Package Title</label>
+                <Input
+                  value={packageForm.title}
+                  onChange={(e) => setPackageForm({...packageForm, title: e.target.value})}
+                  placeholder="e.g., Instagram Post Package"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Description</label>
+                <textarea
+                  value={packageForm.description}
+                  onChange={(e) => setPackageForm({...packageForm, description: e.target.value})}
+                  className="w-full h-20 p-2 border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500"
+                  placeholder="Describe what's included in this package"
+                />
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    <DollarSign className="w-4 h-4 inline mr-1" />
+                    Price (USD) *
+                  </label>
+                  <Input
+                    value={packageForm.price}
+                    onChange={(e) => setPackageForm({...packageForm, price: Number(e.target.value) || 0})}
+                    type="number"
+                    placeholder="100"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Turnaround (Days)</label>
+                  <Input
+                    value={packageForm.turnaroundDays}
+                    onChange={(e) => setPackageForm({...packageForm, turnaroundDays: Number(e.target.value) || 1})}
+                    type="number"
+                    placeholder="3"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Revisions</label>
+                  <Input
+                    value={packageForm.revisions}
+                    onChange={(e) => setPackageForm({...packageForm, revisions: Number(e.target.value) || 1})}
+                    type="number"
+                    placeholder="1"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Deliverables</label>
+                <div className="space-y-2">
+                  {packageForm.deliverables.map((deliverable, index) => (
+                    <div key={index} className="flex items-center space-x-2">
+                      <Input
+                        value={deliverable}
+                        onChange={(e) => {
+                          const newDeliverables = [...packageForm.deliverables]
+                          newDeliverables[index] = e.target.value
+                          setPackageForm({...packageForm, deliverables: newDeliverables})
+                        }}
+                        placeholder="e.g., 1 Instagram post with your product"
+                      />
+                      {packageForm.deliverables.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const newDeliverables = packageForm.deliverables.filter((_, i) => i !== index)
+                            setPackageForm({...packageForm, deliverables: newDeliverables})
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setPackageForm({...packageForm, deliverables: [...packageForm.deliverables, '']})
+                    }}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Deliverable
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="isActive"
+                    checked={packageForm.isActive}
+                    onChange={(e) => setPackageForm({...packageForm, isActive: e.target.checked})}
+                    className="rounded"
+                  />
+                  <label htmlFor="isActive" className="text-sm font-medium text-slate-700">
+                    Active Package (visible to brands)
+                  </label>
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <Button variant="outline" onClick={() => {
+                  setShowPackageForm(false)
+                  setEditingPackage(null)
+                }}>
+                  Cancel
+                </Button>
+                <Button onClick={handlePackageSubmit}>
+                  {editingPackage ? 'Update' : 'Create'} Package
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -48,6 +48,10 @@ export default function SubmitLiveUrls() {
     { value: 'TikTok', label: 'TikTok', icon: LinkIcon },
     { value: 'YouTube', label: 'YouTube', icon: LinkIcon },
     { value: 'Twitter', label: 'Twitter/X', icon: LinkIcon },
+    { value: 'Facebook', label: 'Facebook', icon: LinkIcon },
+    { value: 'LinkedIn', label: 'LinkedIn', icon: LinkIcon },
+    { value: 'Pinterest', label: 'Pinterest', icon: LinkIcon },
+    { value: 'Snapchat', label: 'Snapchat', icon: LinkIcon },
   ]
 
   const postTypes = ['POST', 'STORY', 'REEL', 'VIDEO', 'SHORTS']

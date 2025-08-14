@@ -45,6 +45,12 @@ export class CreateCampaignDto {
   @IsOptional()
   endDate?: string;
 
+  @ApiProperty({ description: 'Maximum number of influencers needed', required: false })
+  @IsNumber()
+  @IsOptional()
+  @Min(1)
+  maxInfluencers?: number;
+
   @ApiProperty({ description: 'Target audience criteria', required: false })
   @IsObject()
   @IsOptional()
@@ -121,6 +127,12 @@ export class UpdateCampaignDto {
   @IsDateString()
   @IsOptional()
   endDate?: string;
+
+  @ApiProperty({ description: 'Maximum number of influencers needed', required: false })
+  @IsNumber()
+  @IsOptional()
+  @Min(1)
+  maxInfluencers?: number;
 
   @ApiProperty({ description: 'Target audience criteria', required: false })
   @IsObject()

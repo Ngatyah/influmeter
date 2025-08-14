@@ -20,6 +20,7 @@ export default function Header({ userRole, userName, userAvatar }: HeaderProps) 
     if (path.includes('/discover')) return 'Discover Influencers'
     if (path.includes('/campaigns')) return 'Campaigns'
     if (path.includes('/analytics')) return 'Analytics'
+    if (path.includes('/inquiries')) return 'Inquiries'
     if (path.includes('/settings')) return 'Settings'
     if (path.includes('/dashboard')) return userRole === 'brand' ? 'Brand Dashboard' : 'Creator Dashboard'
     return 'Influmeter'

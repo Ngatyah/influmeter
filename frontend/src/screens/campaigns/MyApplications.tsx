@@ -219,7 +219,7 @@ export default function MyApplications() {
       )}
 
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-8">
+        <Tabs defaultValue="active" value={selectedTab} onValueChange={setSelectedTab} className="space-y-8">
           <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
             <TabsTrigger value="active" className="relative">
               Active Campaigns
@@ -232,7 +232,7 @@ export default function MyApplications() {
             <TabsTrigger value="applications">All Applications</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="active">
+          <TabsContent value="active" className="mt-8">
             {/* Active Campaigns with Content Management */}
             {activeCampaigns.length === 0 && !loading ? (
               <div className="text-center py-12">
@@ -258,7 +258,7 @@ export default function MyApplications() {
             )}
           </TabsContent>
 
-          <TabsContent value="applications">
+          <TabsContent value="applications" className="mt-8">
             {/* Applications Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {(applications || []).map((application) => (
@@ -425,8 +425,12 @@ function ActiveCampaignCard({ campaignData, onRefresh }: {
     }
   }
 
-  const needsUrlSubmission = (content: ContentSubmission): boolean => {
-    return content.status === 'APPROVED' && (!content.publishedPosts || content.publishedPosts.length === 0)
+  const needsUrlSubmission = (content: ContentSubmission, campaign: any): boolean => {
+    // Don't allow URL submission if campaign is paid/completed
+    const campaignNotPaid = campaign?.status !== 'PAID' && campaign?.status !== 'COMPLETED'
+    
+    // Allow URL submission for approved content only if campaign is still active (not paid)
+    return content.status === 'APPROVED' && campaignNotPaid
   }
 
   return (
@@ -456,9 +460,15 @@ function ActiveCampaignCard({ campaignData, onRefresh }: {
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <Badge className="bg-green-100 text-green-800">
+            <Badge className={
+              campaign?.status === 'PAID' || campaign?.status === 'COMPLETED' 
+                ? "bg-blue-100 text-blue-800" 
+                : "bg-green-100 text-green-800"
+            }>
               <CheckCircle className="w-3 h-3 mr-1" />
-              Active
+              {campaign?.status === 'PAID' ? 'Paid' : 
+               campaign?.status === 'COMPLETED' ? 'Completed' : 
+               'Active'}
             </Badge>
           </div>
         </div>
@@ -466,7 +476,7 @@ function ActiveCampaignCard({ campaignData, onRefresh }: {
 
       <CardContent className="space-y-6">
         {/* Quick Actions */}
-        <div className="flex space-x-2">
+        {/* <div className="flex space-x-2">
           <Button 
             size="sm" 
             onClick={() => navigate(`/campaigns/${campaign.id}/submit`)}
@@ -483,7 +493,7 @@ function ActiveCampaignCard({ campaignData, onRefresh }: {
             <Eye className="w-3 h-3 mr-1" />
             View Campaign
           </Button>
-        </div>
+        </div> */}
 
         {/* Content Submissions */}
         <div>
@@ -579,14 +589,14 @@ function ActiveCampaignCard({ campaignData, onRefresh }: {
 
                   {/* Action Buttons */}
                   <div className="flex space-x-2">
-                    {needsUrlSubmission(content) && (
+                    {needsUrlSubmission(content, campaign) && (
                       <Button 
                         size="sm" 
                         onClick={() => navigate(`/campaigns/${content.campaignId}/submit-urls/${content.id}`)}
                         className="bg-blue-600 hover:bg-blue-700 text-white"
                       >
                         <LinkIcon className="w-3 h-3 mr-1" />
-                        Submit Live URLs
+                        {content.publishedPosts && content.publishedPosts.length > 0 ? 'Add More URLs' : 'Submit Live URLs'}
                       </Button>
                     )}
                     

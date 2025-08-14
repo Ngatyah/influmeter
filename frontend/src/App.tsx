@@ -17,6 +17,7 @@ import { BrandAnalytics, InfluencerAnalytics } from './screens/analytics'
 import { InfluencerProfile } from './screens/profile'
 import { InfluencerOnboarding, BrandOnboarding } from './screens/onboarding'
 import InfluencerContentView from './screens/campaigns/InfluencerContentView'
+import { ManageInquiries } from './screens/inquiries'
 import { ThemeProvider } from './components/ui/theme-provider';
 import { ToastProvider } from './components/ui/toast-provider';
 import { authService } from './services/auth.service'
@@ -181,6 +182,16 @@ function App() {
               element={
                 <ProtectedRoute role="influencer">
                   <InfluencerEarnings />
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* Inquiries Route */}
+            <Route 
+              path="/inquiries" 
+              element={
+                <ProtectedRoute role="influencer">
+                  <ManageInquiries />
                 </ProtectedRoute>
               } 
             />

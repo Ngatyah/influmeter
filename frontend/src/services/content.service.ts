@@ -451,7 +451,10 @@ class ContentService {
       tiktok: /tiktok\.com\/@[\w.-]+\/video\/\d+/i,
       youtube: /youtube\.com\/watch\?v=[\w-]+|youtu\.be\/[\w-]+|youtube\.com\/shorts\/[\w-]+/i,
       twitter: /twitter\.com\/[\w]+\/status\/\d+|x\.com\/[\w]+\/status\/\d+/i,
-      facebook: /facebook\.com\/[\w.-]+\/posts\/\d+/i
+      facebook: /facebook\.com\/[\w.-]+\/posts\/\d+|facebook\.com\/[\w.-]+\/videos\/\d+/i,
+      linkedin: /linkedin\.com\/posts\/[\w-]+|linkedin\.com\/feed\/update\/urn:li:activity:\d+/i,
+      pinterest: /pinterest\.com\/pin\/\d+/i,
+      snapchat: /snapchat\.com\/[a-zA-Z0-9._-]+|snap\.com\/[a-zA-Z0-9._-]+/i
     }
 
     const pattern = platformPatterns[platform.toLowerCase()]
@@ -467,26 +470,165 @@ class ContentService {
 
   // Helper: Extract post ID from URL
   extractPostId(url: string, platform: string): string | null {
-   const patterns: Record<string, RegExp> = {
-  instagram: /instagram\.com\/(p|reel)\/([A-Za-z0-9_-]+)/,
-  tiktok: /tiktok\.com\/@[\w.-]+\/video\/(\d+)/,
-  youtube: /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([\w-]+)/,
-  twitter: /(?:twitter|x)\.com\/[\w]+\/status\/(\d+)/,
-  facebook: /facebook\.com\/[\w.-]+\/posts\/(\d+)/
-};
+    try {
+      const patterns: Record<string, RegExp> = {
+        instagram: /instagram\.com\/(p|reel)\/([A-Za-z0-9_-]+)/,
+        tiktok: /tiktok\.com\/@[\w.-]+\/video\/(\d+)/,
+        youtube: /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([\w-]+)/,
+        twitter: /(?:twitter|x)\.com\/[\w]+\/status\/(\d+)/,
+        facebook: /facebook\.com\/[\w.-]+\/(?:posts|videos)\/(\d+)/,
+        linkedin: /linkedin\.com\/posts\/[\w-]+|linkedin\.com\/feed\/update\/urn:li:activity:(\d+)/,
+        pinterest: /pinterest\.com\/pin\/(\d+)/,
+        snapchat: /(?:snapchat|snap)\.com\/([a-zA-Z0-9._-]+)/
+      };
 
-const pattern = patterns[platform.toLowerCase()];
+      const pattern = patterns[platform.toLowerCase()];
       if (pattern) {
         const match = url.match(pattern)
         return match ? match[match.length - 1] : null
       }
       
       return null
-    } catch (error:any) {
-        console.error(error);
+    } catch (error: any) {
+      console.error(error);
       return null
     }
   }
 
+
+  // Helper method to add sample published posts for testing
+  private addSamplePublishedPosts(content: ContentSubmission): ContentSubmission {
+    // Only add sample data if content is COMPLETED or PAID (not for APPROVED - let user add URLs first)
+    if ((content.status === 'COMPLETED' || content.status === 'PAID') && 
+        (!content.publishedPosts || content.publishedPosts.length === 0)) {
+      
+      const samplePosts: any[] = []
+      
+      // Add sample posts based on platforms
+      content.platforms.forEach((platform, index) => {
+        const baseId = `sample-${content.id}-${platform}`
+        const publishedAt = new Date(Date.now() - (index * 24 * 60 * 60 * 1000)) // Stagger by days
+        
+        let postUrl = ''
+        let postType = 'POST'
+        let performance = {
+          views: Math.floor(Math.random() * 50000) + 1000,
+          likes: Math.floor(Math.random() * 5000) + 100,
+          comments: Math.floor(Math.random() * 500) + 10,
+          shares: Math.floor(Math.random() * 200) + 5,
+          saves: Math.floor(Math.random() * 1000) + 20,
+          clicks: Math.floor(Math.random() * 1500) + 50,
+          impressions: Math.floor(Math.random() * 75000) + 5000,
+          reach: Math.floor(Math.random() * 45000) + 2000,
+          engagementRate: +(Math.random() * 8 + 2).toFixed(2), // 2-10%
+          ctr: +(Math.random() * 3 + 0.5).toFixed(2), // 0.5-3.5%
+          lastUpdated: new Date().toISOString()
+        }
+        
+        // Generate realistic URLs and post types based on platform
+        switch (platform.toLowerCase()) {
+          case 'instagram':
+            postUrl = content.contentType === 'REEL' 
+              ? `https://instagram.com/reel/${baseId.slice(-11)}/`
+              : `https://instagram.com/p/${baseId.slice(-11)}/`
+            postType = content.contentType === 'REEL' ? 'REEL' : 'POST'
+            break
+          case 'tiktok':
+            postUrl = `https://tiktok.com/@sampleuser/video/${Date.now() + index}`
+            postType = 'VIDEO'
+            break
+          case 'youtube':
+            if (content.contentType === 'VIDEO') {
+              postUrl = `https://youtube.com/watch?v=${baseId.slice(-11)}`
+              postType = 'VIDEO'
+            } else {
+              postUrl = `https://youtube.com/shorts/${baseId.slice(-11)}`
+              postType = 'SHORTS'
+            }
+            break
+          case 'twitter':
+          case 'x':
+            postUrl = `https://twitter.com/sampleuser/status/${Date.now() + index}`
+            postType = 'TWEET'
+            break
+          case 'facebook':
+            postUrl = content.contentType === 'VIDEO' 
+              ? `https://facebook.com/sampleuser/videos/${Date.now() + index}`
+              : `https://facebook.com/sampleuser/posts/${Date.now() + index}`
+            postType = content.contentType === 'VIDEO' ? 'VIDEO' : 'POST'
+            break
+          case 'linkedin':
+            postUrl = `https://linkedin.com/posts/sampleuser_${baseId.slice(-8)}`
+            postType = 'POST'
+            break
+          case 'pinterest':
+            postUrl = `https://pinterest.com/pin/${Date.now() + index}`
+            postType = 'PIN'
+            break
+          case 'snapchat':
+            postUrl = `https://snapchat.com/sampleuser`
+            postType = 'SNAP'
+            break
+          default:
+            postUrl = `https://${platform.toLowerCase()}.com/post/${baseId}`
+            postType = 'POST'
+        }
+        
+        samplePosts.push({
+          id: baseId,
+          contentId: content.id,
+          platform: platform.toLowerCase(),
+          postUrl,
+          platformPostId: baseId.slice(-11),
+          postType,
+          publishedAt: publishedAt.toISOString(),
+          status: 'VERIFIED',
+          verifiedAt: publishedAt.toISOString(),
+          createdAt: publishedAt.toISOString(),
+          updatedAt: publishedAt.toISOString(),
+          performance
+        })
+      })
+      
+      content.publishedPosts = samplePosts
+    }
+    
+    return content
+  }
+
+  // Override the getInfluencerContentForCampaign to add sample data for testing
+  async getInfluencerContentForCampaign(
+    influencerId: string, 
+    campaignId: string, 
+    filters?: ContentFilters
+  ): Promise<{
+    contentSubmissions: ContentSubmission[]
+    total: number
+    page: number
+    limit: number
+    totalPages: number
+    hasMore: boolean
+  }> {
+    try {
+      const params = new URLSearchParams()
+      
+      if (filters) {
+        if (filters.search) params.append('search', filters.search)
+        if (filters.status) params.append('status', filters.status)
+        if (filters.contentType) params.append('contentType', filters.contentType)
+        if (filters.page) params.append('page', filters.page.toString())
+        if (filters.limit) params.append('limit', filters.limit.toString())
+      }
+
+      const response = await apiClient.get(
+        `/content/influencer/${influencerId}/campaign/${campaignId}${params.toString() ? '?' + params.toString() : ''}`
+      )
+      
+      return response.data
+    } catch (error) {
+      throw new Error(handleApiError(error))
+    }
+  }
+}
 
 export const contentService = new ContentService()
