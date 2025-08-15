@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { 
   ArrowLeft, 
   ArrowRight, 
@@ -49,6 +49,13 @@ interface CampaignData {
     requirements: string[]
     platforms: string[]
     files: File[]
+    existingFiles: Array<{
+      id: string
+      fileName: string
+      fileUrl: string
+      fileSize: number
+      uploadedAt: string
+    }>
   }
   influencerRequirements: {
     minFollowers: string
@@ -104,10 +111,14 @@ const steps = [
 
 export default function CreateCampaign() {
   const navigate = useNavigate()
+  const { id } = useParams()
   const { success, error: showError } = useToastActions()
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
+  const [loadingCampaign, setLoadingCampaign] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [removedFileIds, setRemovedFileIds] = useState<string[]>([])
+  const isEditing = !!id
   const [campaignData, setCampaignData] = useState<CampaignData>({
     title: '',
     objective: '',
@@ -132,7 +143,8 @@ export default function CreateCampaign() {
       description: '',
       requirements: [],
       platforms: [],
-      files: []
+      files: [],
+      existingFiles: []
     },
     influencerRequirements: {
       minFollowers: '',
@@ -193,6 +205,105 @@ export default function CreateCampaign() {
     })
   }
 
+  // Load campaign data when editing
+  useEffect(() => {
+    if (isEditing && id) {
+      const loadCampaignData = async () => {
+        try {
+          setLoadingCampaign(true)
+          setError(null)
+          const campaign = await campaignService.getCampaign(id)
+          
+          // Transform campaign data to match our form structure
+          // Extract data from nested objects where it's actually stored
+          const targetAudience = campaign.targetCriteria?.targetAudience || {}
+          const influencerReqs = campaign.targetCriteria?.influencerRequirements || {}
+          const contentBrief = campaign.requirements?.contentBrief || {}
+          
+          setCampaignData({
+            title: campaign.title || '',
+            objective: campaign.objective || '',
+            description: campaign.description || '',
+            targetAudience: {
+              ageRange: targetAudience.ageRange || '',
+              gender: targetAudience.gender || '',
+              location: Array.isArray(targetAudience.location) ? targetAudience.location : [],
+              interests: Array.isArray(targetAudience.interests) ? targetAudience.interests : []
+            },
+            budget: {
+              total: campaign.budget?.toString() || '',
+              perInfluencer: '',
+              currency: 'USD'
+            },
+            timeline: {
+              startDate: campaign.startDate ? campaign.startDate.split('T')[0] : '',
+              endDate: campaign.endDate ? campaign.endDate.split('T')[0] : '',
+              submissionDeadline: campaign.requirements?.submissionDeadline ? campaign.requirements.submissionDeadline.split('T')[0] : ''
+            },
+            contentBrief: {
+              description: contentBrief.description || campaign.contentBrief || '',
+              requirements: Array.isArray(contentBrief.requirements) ? contentBrief.requirements : [],
+              platforms: Array.isArray(contentBrief.platforms) ? contentBrief.platforms : [],
+              files: [],
+              existingFiles: Array.isArray(campaign.briefFiles) ? campaign.briefFiles : []
+            },
+            influencerRequirements: {
+              minFollowers: influencerReqs.minFollowers?.toString() || '',
+              maxFollowers: influencerReqs.maxFollowers?.toString() || '',
+              engagementRate: influencerReqs.engagementRate?.toString() || '',
+              maxParticipants: campaign.maxInfluencers?.toString() || influencerReqs.maxParticipants?.toString() || '',
+              niches: Array.isArray(influencerReqs.niches) ? influencerReqs.niches : [],
+              location: Array.isArray(influencerReqs.location) ? influencerReqs.location : [],
+              platformFollowers: influencerReqs.platformFollowers || {},
+              pastPerformance: {
+                conversionRate: influencerReqs.pastPerformance?.conversionRate || '',
+                completionRate: influencerReqs.pastPerformance?.completionRate || '',
+                requireExperience: influencerReqs.pastPerformance?.requireExperience || false,
+                requireReferralCodes: influencerReqs.pastPerformance?.requireReferralCodes || false,
+                requireClickTracking: influencerReqs.pastPerformance?.requireClickTracking || false
+              },
+              contentTypes: Array.isArray(influencerReqs.contentTypes) ? influencerReqs.contentTypes : [],
+              accountHealth: {
+                publicAccount: influencerReqs.accountHealth?.publicAccount ?? true,
+                verifiedAccount: influencerReqs.accountHealth?.verifiedAccount ?? false,
+                consistentPosting: influencerReqs.accountHealth?.consistentPosting ?? true,
+                noFakeFollowers: influencerReqs.accountHealth?.noFakeFollowers ?? true,
+                authenticEngagement: influencerReqs.accountHealth?.authenticEngagement ?? true,
+                completeProfile: influencerReqs.accountHealth?.completeProfile ?? true
+              },
+              verification: {
+                verifiedEmail: influencerReqs.verification?.verifiedEmail ?? true,
+                phoneVerification: influencerReqs.verification?.phoneVerification ?? false,
+                paymentDetails: influencerReqs.verification?.paymentDetails ?? true,
+                taxInformation: influencerReqs.verification?.taxInformation ?? false
+              },
+              platformVerification: Array.isArray(influencerReqs.platformVerification) 
+                ? influencerReqs.platformVerification 
+                : ['Instagram', 'TikTok', 'YouTube', 'Twitter/X', 'Facebook'],
+              locationSpecific: influencerReqs.locationSpecific ?? false,
+              manualApproval: influencerReqs.manualApproval ?? false,
+              requireHighQuality: influencerReqs.requireHighQuality ?? false
+            },
+            approvalSettings: {
+              requiresApproval: campaign.requiresApproval ?? true,
+              autoApproveInfluencers: Array.isArray(campaign.autoApproveInfluencers) ? campaign.autoApproveInfluencers : [],
+              approvalInstructions: campaign.approvalInstructions || '',
+              trustMode: 'moderate'
+            }
+          })
+        } catch (err) {
+          console.error('Failed to load campaign:', err)
+          setError('Failed to load campaign data')
+          showError('Failed to load campaign data')
+        } finally {
+          setLoadingCampaign(false)
+        }
+      }
+
+      loadCampaignData()
+    }
+  }, [isEditing, id, showError])
+
   const nextStep = () => {
     if (currentStep < steps.length) {
       setCurrentStep(prev => prev + 1)
@@ -211,15 +322,35 @@ export default function CreateCampaign() {
       setError(null)
       
       const campaignPayload = campaignService.transformCampaignData(campaignData)
-      campaignPayload.status = 'DRAFT'
       
-      const createdCampaign = await campaignService.createCampaign(campaignPayload)
-      console.log('Campaign saved as draft:', createdCampaign)
+      let resultCampaign
+      if (isEditing && id) {
+        // Update existing campaign (don't include status in payload)
+        resultCampaign = await campaignService.updateCampaign(id, campaignPayload)
+        console.log('Campaign updated:', resultCampaign)
+        
+        // Delete removed files if any
+        if (removedFileIds.length > 0) {
+          try {
+            await campaignService.deleteBriefFiles(id, removedFileIds)
+            console.log('Removed files deleted:', removedFileIds)
+            setRemovedFileIds([]) // Clear the removed files list
+          } catch (fileDeleteError) {
+            console.error('Failed to delete some files:', fileDeleteError)
+            // Don't fail the entire update if file deletion fails
+          }
+        }
+      } else {
+        // Create new campaign (include status for creation)
+        campaignPayload.status = 'DRAFT'
+        resultCampaign = await campaignService.createCampaign(campaignPayload)
+        console.log('Campaign saved as draft:', resultCampaign)
+      }
       
       // Upload brief files if any were selected
       if (campaignData.contentBrief.files && campaignData.contentBrief.files.length > 0) {
         try {
-          const uploadResult = await campaignService.uploadBriefFiles(createdCampaign.id, campaignData.contentBrief.files)
+          const uploadResult = await campaignService.uploadBriefFiles(resultCampaign.id, campaignData.contentBrief.files)
           console.log('Brief files uploaded:', uploadResult)
         } catch (fileUploadError) {
           console.error('Failed to upload brief files:', fileUploadError)
@@ -229,21 +360,23 @@ export default function CreateCampaign() {
       
       // Show success toast and navigate
       success(
-        'Draft Saved!', 
-        'Your campaign has been saved as a draft. You can continue editing it later.',
+        isEditing ? 'Campaign Updated!' : 'Draft Saved!', 
+        isEditing 
+          ? 'Your campaign has been updated successfully.'
+          : 'Your campaign has been saved as a draft. You can continue editing it later.',
         {
           action: {
-            label: 'View Campaigns',
-            onClick: () => navigate('/campaigns')
+            label: 'View Campaign',
+            onClick: () => navigate(`/campaigns/${resultCampaign.id}`)
           }
         }
       )
       
       // Navigate after a short delay to let user see the toast
-      setTimeout(() => navigate('/campaigns'), 1500)
+      setTimeout(() => navigate(`/campaigns/${resultCampaign.id}`), 1500)
     } catch (error) {
-      console.error('Failed to save campaign:', error)
-      setError(error instanceof Error ? error.message : 'Failed to save campaign')
+      console.error(`Failed to ${isEditing ? 'update' : 'save'} campaign:`, error)
+      setError(error instanceof Error ? error.message : `Failed to ${isEditing ? 'update' : 'save'} campaign`)
     } finally {
       setLoading(false)
     }
@@ -261,15 +394,40 @@ export default function CreateCampaign() {
       }
       
       const campaignPayload = campaignService.transformCampaignData(campaignData)
-      campaignPayload.status = 'ACTIVE'
       
-      const createdCampaign = await campaignService.createCampaign(campaignPayload)
-      console.log('Campaign launched:', createdCampaign)
+      let resultCampaign
+      if (isEditing && id) {
+        // Update existing campaign
+        resultCampaign = await campaignService.updateCampaign(id, campaignPayload)
+        
+        // Delete removed files if any
+        if (removedFileIds.length > 0) {
+          try {
+            await campaignService.deleteBriefFiles(id, removedFileIds)
+            console.log('Removed files deleted:', removedFileIds)
+            setRemovedFileIds([]) // Clear the removed files list
+          } catch (fileDeleteError) {
+            console.error('Failed to delete some files:', fileDeleteError)
+            // Don't fail the entire update if file deletion fails
+          }
+        }
+        
+        // If the campaign is currently a draft, optionally make it active
+        if (resultCampaign.status === 'DRAFT') {
+          resultCampaign = await campaignService.updateCampaignStatus(id, 'ACTIVE')
+        }
+        console.log('Campaign updated and activated:', resultCampaign)
+      } else {
+        // Create new campaign and launch it
+        campaignPayload.status = 'ACTIVE'
+        resultCampaign = await campaignService.createCampaign(campaignPayload)
+        console.log('Campaign launched:', resultCampaign)
+      }
       
       // Upload brief files if any were selected
       if (campaignData.contentBrief.files && campaignData.contentBrief.files.length > 0) {
         try {
-          const uploadResult = await campaignService.uploadBriefFiles(createdCampaign.id, campaignData.contentBrief.files)
+          const uploadResult = await campaignService.uploadBriefFiles(resultCampaign.id, campaignData.contentBrief.files)
           console.log('Brief files uploaded:', uploadResult)
         } catch (fileUploadError) {
           console.error('Failed to upload brief files:', fileUploadError)
@@ -279,13 +437,15 @@ export default function CreateCampaign() {
       
       // Show success toast and navigate
       success(
-        'Campaign Launched! 🚀', 
-        'Your campaign is now live and visible to influencers. Start receiving applications soon!',
+        isEditing ? 'Campaign Updated! ✅' : 'Campaign Launched! 🚀', 
+        isEditing 
+          ? 'Your campaign has been updated successfully and is ready to receive applications!'
+          : 'Your campaign is now live and visible to influencers. Start receiving applications soon!',
         {
           duration: 6000,
           action: {
             label: 'View Campaign',
-            onClick: () => navigate(`/campaigns/${createdCampaign.id}`)
+            onClick: () => navigate(`/campaigns/${resultCampaign.id}`)
           }
         }
       )
@@ -300,6 +460,18 @@ export default function CreateCampaign() {
     }
   }
 
+  // Show loading state when loading campaign data for editing
+  if (loadingCampaign) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-slate-600">Loading campaign data...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Header */}
@@ -311,13 +483,15 @@ export default function CreateCampaign() {
               Back to Dashboard
             </Button>
             <div>
-              <h1 className="text-2xl font-semibold text-slate-900">Create Campaign</h1>
+              <h1 className="text-2xl font-semibold text-slate-900">
+                {isEditing ? 'Edit Campaign' : 'Create Campaign'}
+              </h1>
               <p className="text-slate-600">Step {currentStep} of {steps.length}</p>
             </div>
           </div>
           <Button variant="outline" onClick={saveDraft} disabled={loading}>
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-            Save Draft
+            {isEditing ? 'Update Campaign' : 'Save Draft'}
           </Button>
         </div>
       </header>
@@ -403,6 +577,7 @@ export default function CreateCampaign() {
                 <ContentBriefStep 
                   data={campaignData}
                   updateData={updateCampaignData}
+                  setRemovedFileIds={setRemovedFileIds}
                 />
               )}
               {currentStep === 5 && (
@@ -433,7 +608,7 @@ export default function CreateCampaign() {
                   {currentStep === steps.length ? (
                     <Button onClick={launchCampaign} className="bg-primary hover:bg-primary/90" disabled={loading}>
                       {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                      Launch Campaign
+                      {isEditing ? 'Update Campaign' : 'Launch Campaign'}
                     </Button>
                   ) : (
                     <Button onClick={nextStep}>
@@ -658,7 +833,7 @@ function BudgetTimelineStep({ data, updateData }: { data: CampaignData, updateDa
   )
 }
 
-function ContentBriefStep({ data, updateData }: { data: CampaignData, updateData: Function }) {
+function ContentBriefStep({ data, updateData, setRemovedFileIds }: { data: CampaignData, updateData: Function, setRemovedFileIds: React.Dispatch<React.SetStateAction<string[]>> }) {
   const { success, error: showError, warning } = useToastActions()
   const platforms = ['Instagram', 'TikTok', 'YouTube', 'Twitter/X', 'Facebook']
   const contentRequirements = [
@@ -777,6 +952,14 @@ function ContentBriefStep({ data, updateData }: { data: CampaignData, updateData
     updateData('contentBrief', { files: updatedFiles })
   }
 
+  const removeExistingFile = (fileIdToRemove: string) => {
+    const updatedExistingFiles = data.contentBrief.existingFiles.filter(file => file.id !== fileIdToRemove)
+    updateData('contentBrief', { existingFiles: updatedExistingFiles })
+    
+    // Track removed file for deletion during save
+    setRemovedFileIds(prev => [...prev, fileIdToRemove])
+  }
+
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes'
     const k = 1024
@@ -891,40 +1074,95 @@ function ContentBriefStep({ data, updateData }: { data: CampaignData, updateData
           </div>
 
           {/* Uploaded Files List */}
-          {data.contentBrief.files.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-slate-700">Uploaded Files ({data.contentBrief.files.length})</p>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {data.contentBrief.files.map((file, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-slate-200 rounded flex items-center justify-center">
-                        {file.type.startsWith('image/') ? (
-                          <Image className="w-4 h-4 text-slate-600" />
-                        ) : (
-                          <FileText className="w-4 h-4 text-slate-600" />
-                        )}
+          {(data.contentBrief.existingFiles.length > 0 || data.contentBrief.files.length > 0) && (
+            <div className="space-y-3">
+              {/* Existing Files */}
+              {data.contentBrief.existingFiles.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-slate-700">
+                    Existing Files ({data.contentBrief.existingFiles.length})
+                  </p>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {data.contentBrief.existingFiles.map((file) => (
+                      <div key={file.id} className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-blue-200 rounded flex items-center justify-center">
+                            {file.fileName.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                              <Image className="w-4 h-4 text-blue-600" />
+                            ) : (
+                              <FileText className="w-4 h-4 text-blue-600" />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-900 truncate max-w-xs">
+                              {file.fileName}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {formatFileSize(file.fileSize)} • Uploaded {new Date(file.uploadedAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <a
+                            href={file.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-700 text-xs font-medium"
+                          >
+                            View
+                          </a>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeExistingFile(file.id)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-slate-900 truncate max-w-xs">
-                          {file.name}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {formatFileSize(file.size)}
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeFile(index)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
+
+              {/* Newly Uploaded Files */}
+              {data.contentBrief.files.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-slate-700">
+                    New Files ({data.contentBrief.files.length})
+                  </p>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {data.contentBrief.files.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-green-200 rounded flex items-center justify-center">
+                            {file.type.startsWith('image/') ? (
+                              <Image className="w-4 h-4 text-green-600" />
+                            ) : (
+                              <FileText className="w-4 h-4 text-green-600" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-slate-900 truncate max-w-xs">
+                              {file.name}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {formatFileSize(file.size)} • Just uploaded
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeFile(index)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

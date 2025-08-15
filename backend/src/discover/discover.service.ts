@@ -7,7 +7,7 @@ import { convertBigIntsToNumbers } from '../common/utils/bigint.util';
 export class DiscoverService {
   constructor(private prisma: PrismaService) {}
 
-  async discoverInfluencers(filters: DiscoverInfluencersDto) {
+  async discoverInfluencers(filters: DiscoverInfluencersDto, brandId?: string) {
     const {
       search,
       minFollowers,
@@ -155,6 +155,16 @@ export class DiscoverService {
       this.prisma.user.count({ where }),
     ]);
 
+    // Get shortlist status if brandId is provided
+    let shortlistedInfluencerIds: string[] = [];
+    if (brandId) {
+      const shortlists = await this.prisma.shortlist.findMany({
+        where: { brandId },
+        select: { influencerId: true },
+      });
+      shortlistedInfluencerIds = shortlists.map(s => s.influencerId);
+    }
+
     // Transform data to match frontend expectations
     const transformedInfluencers = influencers.map(user => {
       const primarySocial = user.socialAccounts[0];
@@ -184,7 +194,7 @@ export class DiscoverService {
         })),
         avgViews: this.formatNumber(Math.floor(totalFollowers * (avgEngagement / 100))),
         isVerified: user.profile?.isVerified || false,
-        isShortlisted: false, // TODO: Implement shortlist functionality
+        isShortlisted: shortlistedInfluencerIds.includes(user.id),
         rating: 4.5, // TODO: Implement rating system
         priceRange: this.getPriceRange(totalFollowers),
       };
@@ -213,5 +223,109 @@ export class DiscoverService {
     if (followers >= 50000) return '$100-400';
     if (followers >= 10000) return '$50-200';
     return '$25-100';
+  }
+
+  // Shortlist functionality
+  async toggleShortlist(brandId: string, influencerId: string): Promise<{ isShortlisted: boolean }> {
+    try {
+      // Check if already shortlisted
+      const existing = await this.prisma.shortlist.findUnique({
+        where: {
+          brandId_influencerId: {
+            brandId,
+            influencerId,
+          },
+        },
+      });
+
+      if (existing) {
+        // Remove from shortlist
+        await this.prisma.shortlist.delete({
+          where: {
+            id: existing.id,
+          },
+        });
+        return { isShortlisted: false };
+      } else {
+        // Add to shortlist
+        await this.prisma.shortlist.create({
+          data: {
+            brandId,
+            influencerId,
+          },
+        });
+        return { isShortlisted: true };
+      }
+    } catch (error) {
+      console.error('Error toggling shortlist:', error);
+      throw new Error('Failed to toggle shortlist');
+    }
+  }
+
+  async getShortlist(brandId: string) {
+    try {
+      const shortlistedInfluencers = await this.prisma.shortlist.findMany({
+        where: {
+          brandId,
+        },
+        include: {
+          influencer: {
+            include: {
+              profile: true,
+              influencerProfile: true,
+              socialAccounts: {
+                orderBy: {
+                  followersCount: 'desc',
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      // Transform data to match frontend expectations
+      const transformedInfluencers = shortlistedInfluencers.map(item => {
+        const user = item.influencer;
+        const totalFollowers = user.socialAccounts.reduce(
+          (sum, account) => sum + Number(account.followersCount || 0), 
+          0
+        );
+        
+        // Calculate average engagement rate
+        const avgEngagement = user.socialAccounts.length > 0
+          ? user.socialAccounts.reduce((sum, account) => sum + Number(account.engagementRate || 0), 0) / user.socialAccounts.length
+          : 0;
+
+        return {
+          id: user.id,
+          name: `${user.profile?.firstName || ''} ${user.profile?.lastName || ''}`.trim() || 'Unknown',
+          username: `@${user.profile?.firstName?.toLowerCase() || 'user'}`,
+          avatar: user.profile?.avatarUrl || '/api/placeholder/100/100',
+          bio: user.profile?.bio || user.influencerProfile?.categories?.join(', ') || 'No bio available',
+          followers: this.formatNumber(totalFollowers),
+          engagement: `${avgEngagement.toFixed(1)}%`,
+          location: user.profile?.location || 'Location not specified',
+          niches: user.influencerProfile?.categories || [],
+          platforms: user.socialAccounts.map(account => ({
+            platform: account.platform,
+            followers: this.formatNumber(Number(account.followersCount || 0)),
+          })),
+          avgViews: this.formatNumber(Math.floor(totalFollowers * (avgEngagement / 100))),
+          isVerified: user.profile?.isVerified || false,
+          isShortlisted: true, // Always true for shortlisted items
+          rating: 4.5, // TODO: Implement rating system
+          priceRange: this.getPriceRange(totalFollowers),
+          shortlistedAt: item.createdAt,
+        };
+      });
+
+      return convertBigIntsToNumbers(transformedInfluencers);
+    } catch (error) {
+      console.error('Error getting shortlist:', error);
+      throw new Error('Failed to get shortlist');
+    }
   }
 }

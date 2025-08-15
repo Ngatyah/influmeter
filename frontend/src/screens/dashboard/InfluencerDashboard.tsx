@@ -410,7 +410,7 @@ export default function InfluencerDashboard() {
             <NavItem icon={Search} label="Browse Campaigns" onClick={() => navigate('/campaigns/browse')} />
             <NavItem icon={Camera} label="Content Library" onClick={() => navigate('/content')} />
             <NavItem icon={DollarSign} label="Earnings" onClick={() => navigate('/earnings')} />
-            <NavItem icon={TrendingUp} label="Analytics" onClick={() => navigate('/analytics')} />
+            <NavItem icon={TrendingUp} label="Analytics" onClick={() => navigate('/analytics/influencer')} />
             <NavItem icon={Mail} label="Inquiries" onClick={() => navigate('/inquiries')} />
             <NavItem icon={Settings} label="Settings" onClick={() => navigate('/settings')} />
           </nav>

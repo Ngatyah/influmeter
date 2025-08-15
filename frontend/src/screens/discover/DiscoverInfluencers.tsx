@@ -424,6 +424,7 @@ export default function DiscoverInfluencers() {
                   key={influencer.id} 
                   influencer={influencer} 
                   onToggleShortlist={toggleShortlist}
+                  navigate={navigate}
                 />
               ))}
             </div>
@@ -434,6 +435,7 @@ export default function DiscoverInfluencers() {
                   key={influencer.id} 
                   influencer={influencer} 
                   onToggleShortlist={toggleShortlist}
+                  navigate={navigate}
                 />
               ))}
             </div>
@@ -481,9 +483,10 @@ export default function DiscoverInfluencers() {
   )
 }
 
-function InfluencerCard({ influencer, onToggleShortlist }: { 
+function InfluencerCard({ influencer, onToggleShortlist, navigate }: { 
   influencer: Influencer, 
-  onToggleShortlist: (id: string) => void 
+  onToggleShortlist: (id: string) => void,
+  navigate: (path: string) => void
 }) {
   return (
     <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-shadow">
@@ -540,7 +543,7 @@ function InfluencerCard({ influencer, onToggleShortlist }: {
         </div>
 
         <div className="flex space-x-2">
-          <Button size="sm" className="flex-1">
+          <Button size="sm" className="flex-1" onClick={() => navigate(`/influencer/${influencer.id}`)}>
             View Profile
           </Button>
           <Button size="sm" variant="outline" className="flex-1">
@@ -553,9 +556,10 @@ function InfluencerCard({ influencer, onToggleShortlist }: {
   )
 }
 
-function InfluencerListItem({ influencer, onToggleShortlist }: { 
+function InfluencerListItem({ influencer, onToggleShortlist, navigate }: { 
   influencer: Influencer, 
-  onToggleShortlist: (id: string) => void 
+  onToggleShortlist: (id: string) => void,
+  navigate: (path: string) => void
 }) {
   return (
     <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
@@ -606,7 +610,7 @@ function InfluencerListItem({ influencer, onToggleShortlist }: {
             >
               <Heart className={`w-4 h-4 ${influencer.isShortlisted ? 'fill-current' : ''}`} />
             </Button>
-            <Button size="sm" variant="outline">
+            <Button size="sm" variant="outline" onClick={() => navigate(`/influencer/${influencer.id}`)}>
               View Profile
             </Button>
             <Button size="sm">

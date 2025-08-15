@@ -25,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { campaignService, Campaign } from '../../services/campaign.service'
 import { Loader2, RefreshCw, AlertTriangle } from 'lucide-react'
 import { formatSafeDate } from '../../utils/dateUtils'
+import { getFullUrl } from '../../lib/api'
 
 export default function CampaignDetailInfluencer() {
   const { id } = useParams()
@@ -151,7 +152,7 @@ export default function CampaignDetailInfluencer() {
               <CardContent className="p-6">
                 <div className="flex items-start space-x-4 mb-6">
                   <img 
-                    src={campaign?.brand?.brandProfile?.logoUrl || '/api/placeholder/80/80'} 
+                    src={getFullUrl(campaign?.brand?.brandProfile?.logoUrl)} 
                     alt={campaign?.brand?.brandProfile?.companyName || 'Brand'}
                     className="w-16 h-16 rounded-full object-cover"
                   />
@@ -431,7 +432,7 @@ export default function CampaignDetailInfluencer() {
                                 </div>
                               </div>
                               <Button size="sm" variant="outline" asChild>
-                                <a href={file.fileUrl} target="_blank" rel="noopener noreferrer">
+                                <a href={getFullUrl(file.fileUrl)} target="_blank" rel="noopener noreferrer">
                                   <Download className="w-3 h-3 mr-1" />
                                   Download
                                 </a>

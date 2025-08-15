@@ -66,6 +66,20 @@ const formatNumber = (num: number | undefined | null) => {
   return num.toString()
 }
 
+const isExpired = (endDate: string | undefined | null) => {
+  if (!endDate) return false
+  return new Date(endDate) < new Date()
+}
+
+const getDaysUntilEnd = (endDate: string | undefined | null) => {
+  if (!endDate) return null
+  const end = new Date(endDate)
+  const now = new Date()
+  const diffTime = end.getTime() - now.getTime()
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  return diffDays
+}
+
 // Using formatSafeDate from utils instead of this function
 
 export default function CampaignDetail() {
@@ -186,7 +200,14 @@ export default function CampaignDetail() {
       setRefreshing(true)
       const updatedCampaign = await campaignService.updateCampaignStatus(campaign.id, newStatus)
       setCampaign(updatedCampaign)
-      alert(`Campaign status updated to ${newStatus}`)
+      const statusMessages = {
+        'ACTIVE': 'Campaign activated successfully! 🚀',
+        'PAUSED': 'Campaign paused. You can resume it anytime.',
+        'COMPLETED': 'Campaign marked as completed! 🎉',
+        'DRAFT': 'Campaign saved as draft.',
+        'CANCELLED': 'Campaign cancelled.'
+      }
+      alert(statusMessages[newStatus] || `Campaign status updated to ${newStatus}`)
     } catch (error) {
       console.error('Failed to update campaign status:', error)
       alert('Failed to update campaign status')
@@ -416,17 +437,20 @@ export default function CampaignDetail() {
             </div>
           </div>
           <div className="flex items-center space-x-3">
-            <Button variant="outline">
-              <Edit3 className="w-4 h-4 mr-2" />
-              Edit
-            </Button>
+            {/* Only allow editing for non-completed campaigns */}
+            {campaign.status.toLowerCase() !== 'completed' && (
+              <Button variant="outline" onClick={() => navigate(`/campaigns/${campaign.id}/edit`)}>
+                <Edit3 className="w-4 h-4 mr-2" />
+                Edit
+              </Button>
+            )}
             <Button 
               variant="outline" 
               onClick={() => {
                 const newStatus = campaign.status.toLowerCase() === 'active' ? 'PAUSED' : 'ACTIVE'
                 updateCampaignStatus(newStatus)
               }}
-              disabled={refreshing}
+              disabled={refreshing || campaign.status.toLowerCase() === 'completed'}
             >
               {refreshing ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -435,16 +459,83 @@ export default function CampaignDetail() {
                   <Clock className="w-4 h-4 mr-2" />
                   Pause
                 </>
-              ) : (
+              ) : campaign.status.toLowerCase() === 'paused' ? (
                 <>
                   <Play className="w-4 h-4 mr-2" />
                   Resume
                 </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Completed
+                </>
               )}
             </Button>
+            {/* Complete Campaign Button - Only show for active or paused campaigns */}
+            {(campaign.status.toLowerCase() === 'active' || campaign.status.toLowerCase() === 'paused') && (
+              <Button 
+                variant="outline" 
+                onClick={() => updateCampaignStatus('COMPLETED')}
+                disabled={refreshing}
+                className="border-green-300 text-green-700 hover:bg-green-50"
+              >
+                {refreshing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Complete Campaign
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </div>
       </header>
+
+      {/* Campaign Expiration Notice */}
+      {(() => {
+        const campaignIsExpired = isExpired(campaign.endDate)
+        const daysUntilEnd = getDaysUntilEnd(campaign.endDate)
+        const showExpirationNotice = campaignIsExpired || (daysUntilEnd !== null && daysUntilEnd <= 7 && daysUntilEnd >= 0)
+
+        if (!showExpirationNotice) return null
+
+        return (
+          <div className={`mx-6 mt-4 p-4 rounded-lg border ${
+            campaignIsExpired 
+              ? 'bg-red-50 border-red-200 text-red-800' 
+              : 'bg-orange-50 border-orange-200 text-orange-800'
+          }`}>
+            <div className="flex items-center space-x-2">
+              <AlertTriangle className="w-5 h-5" />
+              <div>
+                {campaignIsExpired ? (
+                  <div>
+                    <p className="font-semibold">Campaign Expired</p>
+                    <p className="text-sm">
+                      This campaign ended on {formatSafeDate(campaign.endDate)}. 
+                      {campaign.status.toLowerCase() !== 'completed' && (
+                        <span> It should be automatically completed soon by our system.</span>
+                      )}
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="font-semibold">Campaign Ending Soon</p>
+                    <p className="text-sm">
+                      This campaign will end in {daysUntilEnd} day{daysUntilEnd !== 1 ? 's' : ''} on {formatSafeDate(campaign.endDate)}.
+                      {(campaign.status.toLowerCase() === 'active' || campaign.status.toLowerCase() === 'paused') && (
+                        <span> Consider completing it manually or it will be auto-completed.</span>
+                      )}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       <div className="flex">
         {/* Sidebar with Tabs */}

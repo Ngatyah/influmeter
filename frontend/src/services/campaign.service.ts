@@ -13,6 +13,13 @@ export interface Campaign {
   status: 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'CANCELLED'
   targetCriteria?: object
   requirements?: object
+  briefFiles?: Array<{
+    id: string
+    fileName: string
+    fileUrl: string
+    fileSize: number
+    uploadedAt: string
+  }>
   
   // Approval Settings
   requiresApproval?: boolean
@@ -274,9 +281,9 @@ class CampaignService {
         influencerRequirements: frontendData.influencerRequirements
       },
       requirements: {
-        contentBrief: frontendData.contentBrief
+        contentBrief: frontendData.contentBrief,
+        submissionDeadline: frontendData.timeline?.submissionDeadline
       },
-      contentBrief: frontendData.contentBrief?.description,
       // Approval Settings
       requiresApproval: frontendData.approvalSettings?.requiresApproval ?? true,
       autoApproveInfluencers: frontendData.approvalSettings?.autoApproveInfluencers || [],
@@ -291,16 +298,34 @@ class CampaignService {
     count: number
   }> {
     try {
-      // For now, we'll simulate file upload and create file records
-      // In a real implementation, you would upload files to a storage service first
-      const fileData = files.map(file => ({
-        fileName: file.name,
-        fileType: file.type,
-        fileSize: file.size,
-        fileUrl: URL.createObjectURL(file), // Temporary URL - should be replaced with actual upload
-      }))
+      // Upload files directly to the campaign endpoint
+      const formData = new FormData()
+      files.forEach((file) => {
+        formData.append('files', file)
+      })
 
-      const response = await apiClient.post(`/campaigns/${campaignId}/brief-files`, fileData)
+      // Use the new campaign file upload endpoint
+      const response = await apiClient.post(`/campaigns/${campaignId}/upload-brief-files`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      })
+
+      return response.data
+    } catch (error) {
+      throw new Error(handleApiError(error))
+    }
+  }
+
+  // Delete specific brief files
+  async deleteBriefFiles(campaignId: string, fileIds: string[]): Promise<{
+    message: string
+    deletedCount: number
+  }> {
+    try {
+      const response = await apiClient.delete(`/campaigns/${campaignId}/brief-files`, {
+        data: { fileIds }
+      })
       return response.data
     } catch (error) {
       throw new Error(handleApiError(error))

@@ -32,6 +32,18 @@ export interface ContentSubmission {
       }
     }
   }
+  influencer: {
+    id: string
+    profile?: {
+      firstName?: string
+      lastName?: string
+      avatarUrl?: string
+      bio?: string
+    }
+    influencerProfile?: {
+      categories?: string[]
+    }
+  }
   files?: ContentFile[]
   performance?: ContentPerformance
   publishedPosts?: PublishedPost[]

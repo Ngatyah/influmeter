@@ -94,6 +94,14 @@ function App() {
               } 
             />
             <Route 
+              path="/campaigns/:id/edit" 
+              element={
+                <ProtectedRoute role="brand">
+                  <CreateCampaign />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
               path="/campaigns/browse" 
               element={
                 <ProtectedRoute role="influencer">

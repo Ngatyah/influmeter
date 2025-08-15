@@ -17,7 +17,8 @@ import {
   Clock,
   AlertTriangle,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Camera
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
@@ -26,6 +27,7 @@ import { Badge } from '../../components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { contentService, ContentSubmission } from '../../services/content.service'
 import { formatSafeDate } from '../../utils/dateUtils'
+import { getFullUrl } from '../../lib/api'
 
 // Move these functions outside the component
 const getStatusColor = (status: string) => {
@@ -285,9 +287,15 @@ function SubmissionCard({ submission, onViewDetails, onQuickAction }: {
   onQuickAction: (id: string, status: 'APPROVED' | 'REJECTED') => void
 }) {
   // Extract influencer info from the submission
-  const influencerName = submission.campaign.brand?.profile 
-    ? `${submission.campaign.brand.profile.firstName || ''} ${submission.campaign.brand.profile.lastName || ''}`.trim() 
+  const influencerName = submission.influencer?.profile 
+    ? `${submission.influencer.profile.firstName || ''} ${submission.influencer.profile.lastName || ''}`.trim() 
     : 'Influencer'
+  
+  const influencerUsername = submission.influencer?.profile?.firstName 
+    ? `@${submission.influencer.profile.firstName.toLowerCase()}`
+    : '@influencer'
+    
+  const influencerAvatar = submission.influencer?.profile?.avatarUrl
   
   return (
     <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-shadow">
@@ -295,14 +303,22 @@ function SubmissionCard({ submission, onViewDetails, onQuickAction }: {
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center">
-              <User className="w-6 h-6 text-slate-500" />
-            </div>
+            {influencerAvatar ? (
+              <img 
+                src={getFullUrl(influencerAvatar)} 
+                alt={influencerName}
+                className="w-12 h-12 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center">
+                <User className="w-6 h-6 text-slate-500" />
+              </div>
+            )}
             <div>
               <div className="flex items-center space-x-1">
-                <h3 className="font-semibold text-slate-900">Influencer</h3>
+                <h3 className="font-semibold text-slate-900">{influencerName}</h3>
               </div>
-              <p className="text-sm text-slate-600">@influencer</p>
+              <p className="text-sm text-slate-600">{influencerUsername}</p>
             </div>
           </div>
           <Badge className={`${getStatusColor(submission.status)} flex items-center space-x-1`}>
@@ -325,7 +341,7 @@ function SubmissionCard({ submission, onViewDetails, onQuickAction }: {
                 <div key={index} className="aspect-square rounded-lg overflow-hidden bg-slate-100 relative">
                   {contentService.isImageFile(file.fileType) ? (
                     <img 
-                      src={file.thumbnailUrl || file.fileUrl} 
+                      src={getFullUrl(file.thumbnailUrl || file.fileUrl)} 
                       alt="Content" 
                       className="w-full h-full object-cover" 
                     />
@@ -424,11 +440,20 @@ function SubmissionDetailModal({ submission, feedback, setFeedback, onClose, onS
 
   // Get influencer info
   const getInfluencerInfo = () => {
-    // Try to extract influencer info from submission (if available)
+    const influencerName = submission.influencer?.profile 
+      ? `${submission.influencer.profile.firstName || ''} ${submission.influencer.profile.lastName || ''}`.trim() 
+      : 'Influencer'
+    
+    const influencerUsername = submission.influencer?.profile?.firstName 
+      ? `@${submission.influencer.profile.firstName.toLowerCase()}`
+      : '@influencer'
+      
+    const influencerAvatar = submission.influencer?.profile?.avatarUrl
+    
     return {
-      name: 'Influencer', // Placeholder since influencer info isn't in current data structure
-      username: '@influencer',
-      avatar: '/api/placeholder/60/60'
+      name: influencerName,
+      username: influencerUsername,
+      avatar: influencerAvatar
     }
   }
 
@@ -441,11 +466,17 @@ function SubmissionDetailModal({ submission, feedback, setFeedback, onClose, onS
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
-              <img 
-                src={influencerInfo.avatar} 
-                alt={influencerInfo.name}
-                className="w-12 h-12 rounded-full object-cover"
-              />
+              {influencerInfo.avatar ? (
+                <img 
+                  src={getFullUrl(influencerInfo.avatar)} 
+                  alt={influencerInfo.name}
+                  className="w-12 h-12 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center">
+                  <User className="w-6 h-6 text-slate-500" />
+                </div>
+              )}
               <div>
                 <div className="flex items-center space-x-2">
                   <h2 className="text-xl font-semibold">{influencerInfo.name}</h2>
@@ -483,7 +514,7 @@ function SubmissionDetailModal({ submission, feedback, setFeedback, onClose, onS
                           {contentService.isImageFile(file.fileType) ? (
                             <div className="relative aspect-square rounded-lg overflow-hidden bg-slate-100 cursor-pointer hover:opacity-95 transition-opacity">
                               <img 
-                                src={file.thumbnailUrl || file.fileUrl} 
+                                src={getFullUrl(file.thumbnailUrl || file.fileUrl)} 
                                 alt={`Content ${index + 1}`}
                                 className="w-full h-full object-cover" 
                                 onClick={() => setSelectedImageIndex(index)}
@@ -495,10 +526,10 @@ function SubmissionDetailModal({ submission, feedback, setFeedback, onClose, onS
                           ) : contentService.isVideoFile(file.fileType) ? (
                             <div className="aspect-video rounded-lg overflow-hidden bg-slate-200 relative">
                               <video 
-                                src={file.fileUrl}
+                                src={getFullUrl(file.fileUrl)}
                                 className="w-full h-full object-cover"
                                 controls
-                                poster={file.thumbnailUrl}
+                                poster={getFullUrl(file.thumbnailUrl)}
                               />
                             </div>
                           ) : (
@@ -522,7 +553,7 @@ function SubmissionDetailModal({ submission, feedback, setFeedback, onClose, onS
                                 {file.fileType.split('/')[1]?.toUpperCase()}
                               </span>
                               <Button variant="ghost" size="sm" asChild className="h-6 px-2 text-white hover:bg-white/20">
-                                <a href={file.fileUrl} target="_blank" rel="noopener noreferrer">
+                                <a href={getFullUrl(file.fileUrl)} target="_blank" rel="noopener noreferrer">
                                   <Download className="w-3 h-3" />
                                 </a>
                               </Button>
@@ -558,7 +589,7 @@ function SubmissionDetailModal({ submission, feedback, setFeedback, onClose, onS
                               </div>
                             </div>
                             <Button variant="outline" size="sm" asChild>
-                              <a href={file.fileUrl} target="_blank" rel="noopener noreferrer">
+                              <a href={getFullUrl(file.fileUrl)} target="_blank" rel="noopener noreferrer">
                                 <Download className="w-3 h-3 mr-1" />
                                 Download
                               </a>
@@ -803,7 +834,7 @@ function SubmissionDetailModal({ submission, feedback, setFeedback, onClose, onS
         >
           <div className="relative max-w-4xl max-h-full">
             <img 
-              src={submission.files[selectedImageIndex].fileUrl}
+              src={getFullUrl(submission.files[selectedImageIndex].fileUrl)}
               alt={`Content preview ${selectedImageIndex + 1}`}
               className="max-w-full max-h-full object-contain"
             />

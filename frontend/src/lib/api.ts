@@ -79,7 +79,7 @@ export const handleApiError = (error: any) => {
 
 // Utility function to convert relative paths to full URLs
 export const getFullUrl = (path: string | null | undefined): string => {
-  if (!path) return '/api/placeholder/80/80'
+  if (!path) return `${SERVER_BASE_URL}/uploads/avatars/placeholder.webp`
   
   // If it's already a full URL, return as is
   if (path.startsWith('http://') || path.startsWith('https://')) {

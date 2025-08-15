@@ -10,6 +10,9 @@ import {
   Req,
   Query,
   Put,
+  UseInterceptors,
+  UploadedFiles,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -18,8 +21,11 @@ import {
   ApiResponse,
   ApiParam,
   ApiQuery,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { CampaignsService } from './campaigns.service';
 import {
   CreateCampaignDto,
@@ -133,11 +139,61 @@ export class CampaignsController {
     return this.campaignsService.update(id, req.user.id, updateCampaignDto);
   }
 
-  // Upload brief files to campaign (Brand only)
-  @Post(':id/brief-files')
+  // Upload brief files (Brand only) - Actual file upload
+  @Post(':id/upload-brief-files')
+  @UseInterceptors(FilesInterceptor('files', 10)) // Max 10 files
   @ApiOperation({ summary: 'Upload brief files to campaign' })
+  @ApiConsumes('multipart/form-data')
   @ApiParam({ name: 'id', description: 'Campaign ID' })
-  @ApiResponse({ status: 200, description: 'Files uploaded successfully' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        files: {
+          type: 'array',
+          items: {
+            type: 'string',
+            format: 'binary',
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, description: 'Files uploaded successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 404, description: 'Campaign not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  async uploadCampaignFiles(
+    @Param('id') campaignId: string,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Req() req: any,
+  ) {
+    // Ensure only brands can upload files
+    if (req.user.role !== 'BRAND') {
+      throw new BadRequestException('Only brands can upload campaign files');
+    }
+
+    if (!files || files.length === 0) {
+      throw new BadRequestException('No files uploaded');
+    }
+
+    // Process and upload files, then associate with campaign
+    const fileData = files.map(file => ({
+      fileName: file.originalname,
+      fileType: file.mimetype,
+      fileSize: file.size,
+      fileUrl: `/uploads/campaign-briefs/${file.filename}`,
+    }));
+
+    // Associate files with campaign
+    return this.campaignsService.uploadBriefFiles(campaignId, req.user.id, fileData);
+  }
+
+  // Associate brief files with campaign (Brand only) - For already uploaded files
+  @Post(':id/brief-files')
+  @ApiOperation({ summary: 'Associate brief files with campaign' })
+  @ApiParam({ name: 'id', description: 'Campaign ID' })
+  @ApiResponse({ status: 200, description: 'Files associated successfully' })
   @ApiResponse({ status: 404, description: 'Campaign not found' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   async uploadBriefFiles(@Req() req: any, @Param('id') id: string, @Body() files: Array<{ fileName: string, fileUrl: string, fileType: string, fileSize?: number }>) {

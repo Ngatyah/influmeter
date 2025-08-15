@@ -85,13 +85,13 @@ class DiscoveryService {
     }
   }
 
-  // Shortlist functionality (TODO: implement backend endpoints)
+  // Shortlist functionality
   async toggleShortlist(influencerId: string, isShortlisted: boolean): Promise<void> {
     try {
       const method = isShortlisted ? 'DELETE' : 'POST'
       await apiClient.request({
         method,
-        url: `/shortlists/influencers/${influencerId}`
+        url: `/discover/shortlists/influencers/${influencerId}`
       })
     } catch (error) {
       throw new Error(handleApiError(error))
@@ -100,7 +100,7 @@ class DiscoveryService {
 
   async getShortlist(): Promise<Influencer[]> {
     try {
-      const response = await apiClient.get('/shortlists')
+      const response = await apiClient.get('/discover/shortlists')
       return response.data
     } catch (error) {
       throw new Error(handleApiError(error))

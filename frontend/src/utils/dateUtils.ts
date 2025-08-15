@@ -162,3 +162,72 @@ export const formatSafeBudget = (budgetInput: any): string => {
     return 'Budget Error'
   }
 }
+
+// Campaign expiration utilities
+export const isCampaignExpired = (endDate: string | undefined | null): boolean => {
+  if (!endDate) return false
+  try {
+    return new Date(endDate) < new Date()
+  } catch {
+    return false
+  }
+}
+
+export const getDaysUntilCampaignEnd = (endDate: string | undefined | null): number | null => {
+  if (!endDate) return null
+  try {
+    const end = new Date(endDate)
+    const now = new Date()
+    const diffTime = end.getTime() - now.getTime()
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    return diffDays
+  } catch {
+    return null
+  }
+}
+
+export const getCampaignTimeStatus = (endDate: string | undefined | null): {
+  isExpired: boolean
+  daysUntilEnd: number | null
+  status: 'expired' | 'ending-soon' | 'active' | 'no-end-date'
+  message: string
+} => {
+  if (!endDate) {
+    return {
+      isExpired: false,
+      daysUntilEnd: null,
+      status: 'no-end-date',
+      message: 'No end date set'
+    }
+  }
+
+  const isExpired = isCampaignExpired(endDate)
+  const daysUntilEnd = getDaysUntilCampaignEnd(endDate)
+
+  if (isExpired) {
+    return {
+      isExpired: true,
+      daysUntilEnd,
+      status: 'expired',
+      message: `Expired ${Math.abs(daysUntilEnd || 0)} day${Math.abs(daysUntilEnd || 0) !== 1 ? 's' : ''} ago`
+    }
+  }
+
+  if (daysUntilEnd !== null && daysUntilEnd <= 7 && daysUntilEnd >= 0) {
+    return {
+      isExpired: false,
+      daysUntilEnd,
+      status: 'ending-soon',
+      message: daysUntilEnd === 0 ? 'Ends today' : 
+               daysUntilEnd === 1 ? 'Ends tomorrow' : 
+               `Ends in ${daysUntilEnd} days`
+    }
+  }
+
+  return {
+    isExpired: false,
+    daysUntilEnd,
+    status: 'active',
+    message: daysUntilEnd !== null ? `${daysUntilEnd} days remaining` : 'Active'
+  }
+}

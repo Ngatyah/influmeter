@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Query, Param, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { DiscoverService } from './discover.service';
@@ -23,7 +23,29 @@ export class DiscoverController {
   @ApiQuery({ name: 'verified', required: false, description: 'Verified accounts only' })
   @ApiQuery({ name: 'page', required: false, description: 'Page number' })
   @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
-  async discoverInfluencers(@Query() query: DiscoverInfluencersDto) {
-    return this.discoverService.discoverInfluencers(query);
+  async discoverInfluencers(@Query() query: DiscoverInfluencersDto, @Req() req: any) {
+    const brandId = req.user?.id;
+    return this.discoverService.discoverInfluencers(query, brandId);
+  }
+
+  @Post('shortlists/influencers/:influencerId')
+  @ApiOperation({ summary: 'Add influencer to shortlist' })
+  async addToShortlist(@Param('influencerId') influencerId: string, @Req() req: any) {
+    const brandId = req.user.id;
+    return this.discoverService.toggleShortlist(brandId, influencerId);
+  }
+
+  @Delete('shortlists/influencers/:influencerId')
+  @ApiOperation({ summary: 'Remove influencer from shortlist' })
+  async removeFromShortlist(@Param('influencerId') influencerId: string, @Req() req: any) {
+    const brandId = req.user.id;
+    return this.discoverService.toggleShortlist(brandId, influencerId);
+  }
+
+  @Get('shortlists')
+  @ApiOperation({ summary: 'Get user shortlist' })
+  async getShortlist(@Req() req: any) {
+    const brandId = req.user.id;
+    return this.discoverService.getShortlist(brandId);
   }
 }

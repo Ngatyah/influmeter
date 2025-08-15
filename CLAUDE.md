@@ -1,0 +1,1 @@
+- Always use '/mnt/c/Users/david/OneDrive/Documents/personal/Influmeter/Theme/Docs' for guidance
